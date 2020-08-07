@@ -45,7 +45,9 @@ class MomentSmoother(Smoother):
         super().__init__()
         self.name = name
         self.decimals = decimals
-        if data is not None:
+        if data is None:
+            self.fit(-3, 3, 0, 1)
+        else:
             self.fit(
                 round(data.min(), decimals), 
                 round(data.max(), decimals),

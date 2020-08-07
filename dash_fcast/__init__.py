@@ -1,6 +1,6 @@
 from .series import Series
 from .smoothers import MomentSmoother
-from .tables import Quantiles
+from .tables import Bins, Quantiles
 
 # from smoother import Smoother, DerivativeObjective, MassConstraint, MomentConstraint
 
