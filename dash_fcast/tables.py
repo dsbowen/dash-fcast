@@ -66,15 +66,6 @@ class Bins(Table):
         self.register_table_callback(app, get_records)
         return self.get_layout()
 
-    def bar_plot(records, col, *args, **kwargs):
-        x, y, width = [], [], []
-        for record in records:
-            min_, max_ = record['Bin min'], record['Bin max']
-            x.append((min_ + max_)/2)
-            width.append(max_ - min_)
-            y.append(float(record[col])/width[-1])
-        return go.Bar(x=x, y=y, width=width, name=col, *args, **kwargs)
-
 
 class Quantiles(Table):
     def __init__(self, name, quantiles, data=[], decimals=2):
@@ -96,14 +87,3 @@ class Quantiles(Table):
 
         self.register_table_callback(app, get_records)
         return self.get_layout()
-
-    def bar_plot(records, col, *args, **kwargs):
-        x, y, width = [], [], []
-        for i in range(len(records)-1):
-            x_i, x_j = float(records[i][col]), float(records[i+1][col])
-            q_i = float(records[i]['Percentile'])
-            q_j = float(records[i+1]['Percentile'])
-            x.append((x_i + x_j)/2)
-            width.append(x_j - x_i)
-            y.append((q_j - q_i) / (100*width[-1]))
-        return go.Bar(x=x, y=y, width=width, name=col, *args, **kwargs)

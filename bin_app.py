@@ -11,18 +11,7 @@ from dash.dependencies import Input, Output, State
 
 DATA_COLOR, FCAST_COLOR = px.colors.qualitative.D3[0:2]
 
-series = fcast.Series('Data', pd.read_csv('base_data.csv')['x'])
-series_pdf = series.pdf_plot(line={'color': DATA_COLOR})
-series_cdf = series.cdf_plot(line={'color': DATA_COLOR})
-smoother = fcast.MomentSmoother('Forecast')
-table = fcast.Quantiles(
-    'Table', (0, .25, .5, .75, 1), data=[series, smoother]
-)
-# table = fcast.Bins(
-#     'Table', 
-#     [(-3, -1), (-1, 0), (0, 1), (1, 3)],
-#     data=[series, smoother]
-# )
+smoother = fcast.BinSmoother('Forecast')
 
 def create_app():
     app = dash.Dash(
@@ -35,28 +24,21 @@ def create_app():
     )
 
     app.layout = html.Div([
-        dbc.Row([
-            dbc.Col(smoother.elicitation(app, series)),
-            dbc.Col(table.dash_table(app))
-        ]),
+        *smoother.elicitation(app),
         html.Div(id='graphs')
     ], className='container')
 
     @app.callback(
         Output('graphs', 'children'),
-        [Input('Forecast', 'children'), Input('Table', 'data')],
+        [Input('Forecast', 'children'), Input('Forecast-table', 'data')]
     )
-    def update_graphs(state_dict, data):
-        smoother = fcast.MomentSmoother.load(state_dict)
+    def update_graphs(state_dict, records):
+        smoother = fcast.BinSmoother.load(state_dict)
 
         pdf = go.Figure([
-            series_pdf, 
             smoother.pdf_plot(line={'color': FCAST_COLOR}),
-            fcast.Quantiles.bar_plot(
-                data, 'Data', marker_color=DATA_COLOR, opacity=.4
-            ),
-            fcast.Quantiles.bar_plot(
-                data, 'Forecast', marker_color=FCAST_COLOR, opacity=.4
+            fcast.bins_bar_plot(
+                records, 'Forecast', marker_color=FCAST_COLOR, opacity=.4
             )
         ])
         pdf.update_layout(
@@ -71,8 +53,8 @@ def create_app():
         )
 
         cdf = go.Figure([
-            series_cdf,
-            smoother.cdf_plot(line={'color': FCAST_COLOR})
+            smoother.cdf_plot(line={'color': FCAST_COLOR}),
+
         ])
         cdf.update_layout(
             transition_duration=500, 
@@ -83,6 +65,7 @@ def create_app():
             },
             legend={'orientation': 'h'}
         )
+
         return [dcc.Graph(figure=pdf), dcc.Graph(figure=cdf)]
 
     return app
