@@ -17,15 +17,15 @@ series = fcast.Series('Data', pd.read_csv('base_data.csv')['x'])
 series_pdf = series.pdf_plot(line={'color': DATA_COLOR})
 series_cdf = series.cdf_plot(line={'color': DATA_COLOR})
 # smoother = fcast.MomentSmoother('Forecast', series)
-smoother = fcast.MomentSmoother('Forecast')
-# table = fcast.Quantiles(
-#     'Table', (0, .25, .5, .75, 1), data=[smoother] # data=[series, smoother]
-# )
-table = fcast.Bins(
-    'Table', 
-    [(-3, -1), (-1, 0), (0, 1), (1, 3)],
-    data=[smoother]
+smoother = fcast.MomentSmoother('Forecast', series)
+table = fcast.Quantiles(
+    'Table', (0, .25, .5, .75, 1), data=[series, smoother]
 )
+# table = fcast.Bins(
+#     'Table', 
+#     [(-3, -1), (-1, 0), (0, 1), (1, 3)],
+#     data=[series, smoother]
+# )
 
 def create_app():
     app = dash.Dash(
@@ -51,18 +51,22 @@ def create_app():
     )
     def update_graphs(state_dict, data):
         smoother = fcast.MomentSmoother.load(state_dict)
+
         pdf = go.Figure([
-            # series_pdf, 
+            series_pdf, 
             smoother.pdf_plot(line={'color': FCAST_COLOR}),
-            # fcast.Quantiles.bar_plot(
-            #     data, 'Data', marker_color=DATA_COLOR, opacity=.4
-            # ),
-            # fcast.Quantiles.bar_plot(
-            #     data, 'Forecast', marker_color=FCAST_COLOR, opacity=.4
-            # )
-            fcast.Bins.bar_plot(
+            fcast.Quantiles.bar_plot(
+                data, 'Data', marker_color=DATA_COLOR, opacity=.4
+            ),
+            fcast.Quantiles.bar_plot(
                 data, 'Forecast', marker_color=FCAST_COLOR, opacity=.4
             )
+            # fcast.Bins.bar_plot(
+            #     data, 'Data', marker_color=DATA_COLOR, opacity=.4
+            # ),
+            # fcast.Bins.bar_plot(
+            #     data, 'Forecast', marker_color=FCAST_COLOR, opacity=.4
+            # )
         ])
         pdf.update_layout(
             transition_duration=500, 
@@ -70,10 +74,13 @@ def create_app():
                 'text': 'Probability density', 
                 'x': .5, 
                 'xanchor': 'center'
-            }
+            },
+            legend={'orientation': 'h'},
+            barmode='overlay'
         )
+
         cdf = go.Figure([
-            # series_cdf,
+            series_cdf,
             smoother.cdf_plot(line={'color': FCAST_COLOR})
         ])
         cdf.update_layout(
@@ -82,7 +89,8 @@ def create_app():
                 'text': 'Cumulative distribution', 
                 'x': .5, 
                 'xanchor': 'center'
-            }
+            },
+            legend={'orientation': 'h'}
         )
         return [dcc.Graph(figure=pdf), dcc.Graph(figure=cdf)]
 

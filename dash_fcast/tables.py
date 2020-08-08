@@ -71,8 +71,8 @@ class Bins(Table):
         for record in records:
             min_, max_ = record['Bin min'], record['Bin max']
             x.append((min_ + max_)/2)
-            y.append(float(record[col]))
             width.append(max_ - min_)
+            y.append(float(record[col])/width[-1])
         return go.Bar(x=x, y=y, width=width, name=col, *args, **kwargs)
 
 

@@ -21,13 +21,14 @@ class Series(np.ndarray):
     def __round__(self, *args, **kwargs):
         return round(float(self), *args, **kwargs)
 
+    def cdf(self, x):
+        return (self < x).mean()
+
     def quantile(self, q):
         return np.quantile(self, q)
 
-    def pdf_plot(self, lb=None, ub=None, num=100, *args, **kwargs):
-        lb = self[0] if lb is None else lb
-        ub = self[-1] if ub is None else ub
-        x = np.linspace(lb, ub, num)
+    def pdf_plot(self, num=100, *args, **kwargs):
+        x = np.linspace(self[0], self[-1], num)
         params = {'bandwidth': np.logspace(-1, 1, 20)}
         grid = GridSearchCV(KernelDensity(), params)
         grid.fit(self.reshape(-1, 1))
