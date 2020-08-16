@@ -16,16 +16,33 @@ DEFAULT_BINS = [
     (0, 1.5, 44), 
     (1.5, 3, 6)
 ]
-DEFAULT_MOMENTS = {'lb': -3, 'ub': 3, 'mean': 0, 'std': 1}
 
 
 class Smoother(SmootherBase):
-    def __init__(self, name, decimals=2):
-        super().__init__()
+    """
+    Base for smoother classes. Inherits from `smoother.Smoother`.
+
+    Parameters
+    ----------
+    name : str
+        The smoother's name is the `id` of its hidden state `div`, the 
+        default label for plots it generates, and the default column name for 
+        tables to which it belongs.
+
+    \*args, \*\*kwargs : 
+        Arguments and keyword arguments are passed to the smoother 
+        constructor.
+    """
+    def __init__(self, name, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.name = name
-        self.decimals = decimals
 
     def dump(self):
+        """
+        Returns
+        -------
+        state dictionary : str (JSON)
+        """
         return json.dumps({
             'name': self.name,
             'x': list(self.x),
@@ -33,102 +50,154 @@ class Smoother(SmootherBase):
         })
 
     def load(state_dict):
+        """
+        Parameters
+        ----------
+        state_dict : str (JSON)
+            Smoother state dictionary (output of `Smoother.dump`).
+
+        Returns
+        -------
+        smoother : dash_fcast.Smoother
+            Smoother specified by the state dictionary.
+        """
         state_dict = json.loads(state_dict)
-        smoother = Smoother(state_dict['name'])
+        smoother = Smoother(state_dict['name'], state_dict['decimals'])
         smoother.x = np.array(state_dict['x'])
         smoother._f_x = np.array(state_dict['_f_x'])
         return smoother
 
-    def quantile(self, q):
-        return self.ppf(q)
+    def pdf_plot(self, **kwargs):
+        """
+        Parameters
+        ----------
+        \*\*kwargs : 
+            Keyword arguments passed to `go.Scatter`.
 
-    def pdf_plot(self, *args, **kwargs):
-        return go.Scatter(
-            x=self.x, y=self.f_x, name=self.name, *args, **kwargs
-        )
+        Returns
+        -------
+        scatter : go.Scatter
+            Scatter plot of the probability density function.
+        """
+        name = kwargs.get('name', self.name)
+        return go.Scatter(x=self.x, y=self.f_x, name=name, **kwargs)
 
-    def cdf_plot(self, *args, **kwargs):
-        return go.Scatter(
-            x=self.x, y=self.F_x, name=self.name, *args, **kwargs
-        )
+    def cdf_plot(self, **kwargs):
+        """
+        Parameters
+        ----------
+        \*\* kwargs :
+            Keyword arguments passed to `go.Scatter`.
+
+        Returns
+        -------
+        scatter : go.Scatter
+            Scatter plot of the cumulative distribution function.
+        """
+        name = kwargs.get('name', self.name)
+        return go.Scatter(x=self.x, y=self.F_x, name=name, **kwargs)
 
 
-class BinSmoother(Smoother):
-    """
-    with series
-    editable quantiles and bins tables?
-    """
-    def __init__(self, name, data=None, decimals=2):
-        super().__init__(name, decimals)
+class MassSmoother(Smoother):
+    pass
+#     """
+#     with series
+#     editable quantiles and bins tables?
+#     """
+#     def __init__(self, name, data=None, decimals=2):
+#         super().__init__(name, decimals)
 
-    def fit(self, data):
-        lb, ub, constraints = None, None, []
-        for d in data:
-            if lb is None or d[0] < lb:
-                lb = d[0]
-            if ub is None or d[1] > ub:
-                ub = d[1]
-            constraints.append(MassConstraint(d[0], d[1], d[2]/100.))
-        return super().fit(lb, ub, constraints, DerivativeObjective(2))
+#     def fit(self, data):
+#         lb, ub, constraints = None, None, []
+#         for d in data:
+#             if lb is None or d[0] < lb:
+#                 lb = d[0]
+#             if ub is None or d[1] > ub:
+#                 ub = d[1]
+#             constraints.append(MassConstraint(d[0], d[1], d[2]/100.))
+#         return super().fit(lb, ub, constraints, DerivativeObjective(2))
 
-    def elicitation(self, app, bins=None):
-        bins = bins or DEFAULT_BINS
+#     def elicitation(self, app, bins=None):
+#         bins = bins or DEFAULT_BINS
 
-        layout = [
-            html.Div(id=self.name, style={'display': 'none'}),
-            dash_table.DataTable(
-                id=self.name+'-table',
-                columns=[
-                    {'id': 'Bin min', 'name': 'Bin min'},
-                    {'id': 'Bin max', 'name': 'Bin max'},
-                    {'id': self.name, 'name': self.name}
-                ],
-                data=[
-                    {'Bin min': bin[0], 'Bin max': bin[1], self.name: bin[2]}
-                    for bin in bins
-                ],
-                style_as_list_view=True,
-                style_header={
-                    'backgroundColor': 'white',
-                    'fontWeight': 'bold'
-                },
-                editable=True
-            ),
-            dbc.FormText(id=self.name+'-total')
-        ]
+#         layout = [
+#             html.Div(id=self.name, style={'display': 'none'}),
+#             dash_table.DataTable(
+#                 id=self.name+'-table',
+#                 columns=[
+#                     {'id': 'Bin min', 'name': 'Bin min'},
+#                     {'id': 'Bin max', 'name': 'Bin max'},
+#                     {'id': self.name, 'name': self.name}
+#                 ],
+#                 data=[
+#                     {'Bin min': bin[0], 'Bin max': bin[1], self.name: bin[2]}
+#                     for bin in bins
+#                 ],
+#                 style_as_list_view=True,
+#                 style_header={
+#                     'backgroundColor': 'white',
+#                     'fontWeight': 'bold'
+#                 },
+#                 editable=True
+#             ),
+#             dbc.FormText(id=self.name+'-total')
+#         ]
 
-        @app.callback(
-            Output(self.name+'-total', 'children'),
-            [Input(self.name+'-table', 'data')]
-        )
-        def update_total_fcast(records):
-            total = sum([float(r[self.name]) for r in records])
-            return 'Total: {}'.format(total)
+#         @app.callback(
+#             Output(self.name+'-total', 'children'),
+#             [Input(self.name+'-table', 'data')]
+#         )
+#         def update_total_fcast(records):
+#             total = sum([float(r[self.name]) for r in records])
+#             return 'Total: {}'.format(total)
 
-        @app.callback(
-            Output(self.name, 'children'),
-            [Input(self.name+'-table', 'data_timestamp')],
-            [State(self.name+'-table', 'data')]
-        )
-        def update_forecast(_, records):
-            data = [
-                (
-                    float(r['Bin min']), 
-                    float(r['Bin max']), 
-                    float(r[self.name])
-                )
-                for r in records
-            ]
-            return BinSmoother(self.name).fit(data).dump()
+#         @app.callback(
+#             Output(self.name, 'children'),
+#             [Input(self.name+'-table', 'data_timestamp')],
+#             [State(self.name+'-table', 'data')]
+#         )
+#         def update_forecast(_, records):
+#             data = [
+#                 (
+#                     float(r['Bin min']), 
+#                     float(r['Bin max']), 
+#                     float(r[self.name])
+#                 )
+#                 for r in records
+#             ]
+#             return BinSmoother(self.name).fit(data).dump()
 
-        return layout
+#         return layout
 
 
 class MomentSmoother(Smoother):
-    def __init__(self, name, decimals=2):
-        super().__init__(name, decimals)
-
+    """
+    Smoother with bounds and moments constraints. The moments constraints are 
+    mean and standard deviation.
+    """
     def fit(self, lb, ub, mean, std=None):
+        """
+        Fit the smoother given bounds and moments constraints.
+
+        Parameters
+        ----------
+        lb : float
+            Lower bound of the distribution.
+
+        ub : float
+            Upper bound of the distribution.
+
+        mean : float
+            Mean of the distribution.
+
+        std : float or None, default=None
+            Standard deviation of the distribution. If `None`, the standard 
+            deviation constraint is omitted.
+
+        Returns
+        -------
+        self : dash_fcast.MomentSmoother
+        """
         constraints = [MomentConstraint(mean, degree=1)]
         if std is not None:
             constraints.append(
@@ -136,38 +205,53 @@ class MomentSmoother(Smoother):
             )
         return super().fit(lb, ub, constraints)
 
-    def elicitation(self, app, series=None):
-        params = DEFAULT_MOMENTS if series is None else self.get_params(series)
+    def elicitation(self, app, lb=-3, ub=3, mean=0, std=1, decimals=2):
+        """
+        Creates the layout for eliciting bounds and moments.
 
+        Parameters
+        ----------
+        app : dash.Dash
+            Application with which the elicitation is associated.
+
+        lb : float, default=-3
+            Default lower bound.
+
+        ub : float, default=3
+            Default upper bound.
+
+        mean : float, default=0
+            Default mean.
+
+        std : float, default=1
+            Default standard deviation.
+
+        decimals : int, default=2
+            Number of decimals to which the recommended maximum standard 
+            deviation is rounded.
+
+        Returns
+        -------
+        layout : list of dash elements.
+            Elicitation layout.
+        """
         layout = [
             html.Div(id=self.name, style={'display': 'none'}),
             dbc.FormGroup([
                 dbc.Label('Lower bound', html_for=self.name+'-lb'),
-                dbc.Input(
-                    id=self.name+'-lb', value=params['lb'], type='number'
-                )
+                dbc.Input(id=self.name+'-lb', value=lb, type='number')
             ]),
             dbc.FormGroup([
                 dbc.Label('Upper bound', html_for=self.name+'-ub'),
-                dbc.Input(
-                    id=self.name+'-ub', value=params['ub'], type='number'
-                )
+                dbc.Input(id=self.name+'-ub', value=ub, type='number')
             ]),
             dbc.FormGroup([
                 dbc.Label('Mean', html_for=self.name+'-mean'),
-                dbc.Input(
-                    id=self.name+'-mean', 
-                    value=round(params['mean'], self.decimals), 
-                    type='number'
-                )
+                dbc.Input(id=self.name+'-mean', value=mean, type='number')
             ]),
             dbc.FormGroup([
                 dbc.Label('Standard deviation', html_for=self.name+'-std'),
-                dbc.Input(
-                    id=self.name+'-std', 
-                    value=round(params['std'], self.decimals), 
-                    type='number'
-                ),
+                dbc.Input(id=self.name+'-std', value=std, type='number'),
                 dbc.FormText(id=self.name+'-max-std')
             ]),
             dbc.Button(
@@ -189,7 +273,7 @@ class MomentSmoother(Smoother):
             try:
                 smoother = MomentSmoother(self.name).fit(lb, ub, mean)
                 return 'Suggested maximum: {}'.format(
-                    round(smoother.std(), self.decimals)
+                    round(smoother.std(), decimals)
                 )
             except:
                 return children
@@ -204,15 +288,7 @@ class MomentSmoother(Smoother):
                 State(self.name+'-std', 'value')
             ]
         )
-        def update_forecast(n_clicks, lb, ub, mean, std):
+        def update_forecast(_, lb, ub, mean, std):
             return MomentSmoother(self.name).fit(lb, ub, mean, std).dump()
 
         return layout
-
-    def get_params(self, series=None):
-        return {
-            'lb': round(series.min(), self.decimals), 
-            'ub': round(series.max(), self.decimals), 
-            'mean': round(series.mean(), self.decimals), 
-            'std': round(series.std(), self.decimals)
-        }
