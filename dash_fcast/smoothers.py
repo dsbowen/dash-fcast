@@ -1,5 +1,7 @@
 """# Smoothers"""
 
+from .utils import get_changed_cells
+
 import dash_bootstrap_components as dbc
 import dash_html_components as html
 import dash_table
@@ -36,6 +38,9 @@ class Smoother(SmootherBase):
     def __init__(self, name, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.name = name
+    
+    def quantile(self, q):
+        return self.ppf(q)
 
     def dump(self):
         """
@@ -49,7 +54,8 @@ class Smoother(SmootherBase):
             '_f_x': list(self._f_x)
         })
 
-    def load(state_dict):
+    @classmethod
+    def load(cls, state_dict):
         """
         Parameters
         ----------
@@ -62,7 +68,7 @@ class Smoother(SmootherBase):
             Smoother specified by the state dictionary.
         """
         state_dict = json.loads(state_dict)
-        smoother = Smoother(state_dict['name'], state_dict['decimals'])
+        smoother = cls(state_dict['name'])
         smoother.x = np.array(state_dict['x'])
         smoother._f_x = np.array(state_dict['_f_x'])
         return smoother
@@ -99,75 +105,67 @@ class Smoother(SmootherBase):
 
 
 class MassSmoother(Smoother):
-    pass
-#     """
-#     with series
-#     editable quantiles and bins tables?
-#     """
-#     def __init__(self, name, data=None, decimals=2):
-#         super().__init__(name, decimals)
+    """
+    Smoother with masses constraints.
+    """
+    def fit(self, quantiles, values, derivative=2):
+        """
+        Fit the smoother given masses constraints.
 
-#     def fit(self, data):
-#         lb, ub, constraints = None, None, []
-#         for d in data:
-#             if lb is None or d[0] < lb:
-#                 lb = d[0]
-#             if ub is None or d[1] > ub:
-#                 ub = d[1]
-#             constraints.append(MassConstraint(d[0], d[1], d[2]/100.))
-#         return super().fit(lb, ub, constraints, DerivativeObjective(2))
+        Parameters
+        ----------
+        quantiles : list of float or numpy.array
+            Ordered list of quantiles.
 
-#     def elicitation(self, app, bins=None):
-#         bins = bins or DEFAULT_BINS
+        values : list of float or numpy.array
+            Ordered list of values corresponding to `quantiles`.
 
-#         layout = [
-#             html.Div(id=self.name, style={'display': 'none'}),
-#             dash_table.DataTable(
-#                 id=self.name+'-table',
-#                 columns=[
-#                     {'id': 'Bin min', 'name': 'Bin min'},
-#                     {'id': 'Bin max', 'name': 'Bin max'},
-#                     {'id': self.name, 'name': self.name}
-#                 ],
-#                 data=[
-#                     {'Bin min': bin[0], 'Bin max': bin[1], self.name: bin[2]}
-#                     for bin in bins
-#                 ],
-#                 style_as_list_view=True,
-#                 style_header={
-#                     'backgroundColor': 'white',
-#                     'fontWeight': 'bold'
-#                 },
-#                 editable=True
-#             ),
-#             dbc.FormText(id=self.name+'-total')
-#         ]
+        derivative : int, default=2
+            Deriviate of the derivative smoothing function to maximize. e.g. 
+            `2` means the smoother will minimize the mean squaure second 
+            derivitive.
+        """
+        params = zip(values[:-1], values[1:], np.diff(quantiles))
+        return super().fit(
+            values[0], 
+            values[-1],
+            [MassConstraint(lb, ub, mass) for lb, ub, mass in params], DerivativeObjective(derivative)
+        )
 
-#         @app.callback(
-#             Output(self.name+'-total', 'children'),
-#             [Input(self.name+'-table', 'data')]
-#         )
-#         def update_total_fcast(records):
-#             total = sum([float(r[self.name]) for r in records])
-#             return 'Total: {}'.format(total)
+    def state_div(self, app, table):
+        layout = html.Div(
+            self.dump(), id=self.name, style={'display': 'none'}
+        )
 
-#         @app.callback(
-#             Output(self.name, 'children'),
-#             [Input(self.name+'-table', 'data_timestamp')],
-#             [State(self.name+'-table', 'data')]
-#         )
-#         def update_forecast(_, records):
-#             data = [
-#                 (
-#                     float(r['Bin min']), 
-#                     float(r['Bin max']), 
-#                     float(r[self.name])
-#                 )
-#                 for r in records
-#             ]
-#             return BinSmoother(self.name).fit(data).dump()
+        @app.callback(
+            Output(self.name, 'children'),
+            [Input(table.name, 'children')],
+            [
+                State(table.name+'-table', 'data'), 
+                State(table.name+'-table', 'data_previous'),
+                State(self.name, 'children')
+            ]
+        )
+        def update_smoother_state(
+            table_state, data, data_previous, smoother_state
+        ):
+            if not smoother_state or not data_previous:
+                return self.dump()
+            changed_cells = get_changed_cells(data, data_previous)
+            changed_cols = [cell[1] for cell in changed_cells]
+            if self.name not in changed_cols:
+                return smoother_state
+            smoother = MassSmoother.load(smoother_state)
+            table_state = json.loads(table_state)
+            try:
+                smoother.fit(
+                    table_state['iv'], table_state['_data'][self.name]
+                )
+            except:
+                pass
+            return smoother.dump()
 
-#         return layout
+        return layout
 
 
 class MomentSmoother(Smoother):
@@ -175,6 +173,10 @@ class MomentSmoother(Smoother):
     Smoother with bounds and moments constraints. The moments constraints are 
     mean and standard deviation.
     """
+    def __init__(self, name, lb=0, ub=1, mean=.5, std=None, *args, **kwargs):
+        super().__init__(name, *args, **kwargs)
+        self.fit(lb, ub, mean, std)
+
     def fit(self, lb, ub, mean, std=None):
         """
         Fit the smoother given bounds and moments constraints.
@@ -205,7 +207,7 @@ class MomentSmoother(Smoother):
             )
         return super().fit(lb, ub, constraints)
 
-    def elicitation(self, app, lb=-3, ub=3, mean=0, std=1, decimals=2):
+    def elicitation(self, app, lb=0, ub=1, mean=.5, std=None, decimals=2):
         """
         Creates the layout for eliciting bounds and moments.
 
@@ -236,7 +238,7 @@ class MomentSmoother(Smoother):
             Elicitation layout.
         """
         layout = [
-            html.Div(id=self.name, style={'display': 'none'}),
+            html.Div(self.dump(), id=self.name, style={'display': 'none'}),
             dbc.FormGroup([
                 dbc.Label('Lower bound', html_for=self.name+'-lb'),
                 dbc.Input(id=self.name+'-lb', value=lb, type='number')
@@ -255,7 +257,7 @@ class MomentSmoother(Smoother):
                 dbc.FormText(id=self.name+'-max-std')
             ]),
             dbc.Button(
-                'Update distribution', id=self.name+'-update', color='primary'
+                'Update', id=self.name+'-update', color='primary'
             ),
             html.Br()
         ]

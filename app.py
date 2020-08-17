@@ -1,3 +1,5 @@
+# TODO column layouts
+
 import dash_fcast as fcast
 
 import dash
@@ -9,20 +11,15 @@ import plotly.express as px
 import plotly.graph_objects as go
 from dash.dependencies import Input, Output, State
 
-DATA_COLOR, FCAST_COLOR = px.colors.qualitative.D3[0:2]
+ACTUAL_COLOR, FCAST_COLOR = px.colors.qualitative.D3[0:2]
 
-series = fcast.Series('Data', pd.read_csv('base_data.csv')['x'])
-series_pdf = series.pdf_plot(line={'color': DATA_COLOR})
-series_cdf = series.cdf_plot(line={'color': DATA_COLOR})
-smoother = fcast.MomentSmoother('Forecast')
-table = fcast.Quantiles(
-    'Table', (0, .25, .5, .75, 1), data=[series, smoother]
-)
-# table = fcast.Bins(
-#     'Table', 
-#     [(-3, -1), (-1, 0), (0, 1), (1, 3)],
-#     data=[series, smoother]
-# )
+# series = fcast.Series('Data', pd.read_csv('base_data.csv')['x'])
+# series_pdf = series.pdf_plot(line={'color': DATA_COLOR})
+# series_cdf = series.cdf_plot(line={'color': DATA_COLOR})
+
+smoother_actual = fcast.MomentSmoother('Actual')
+smoother_cf = fcast.MomentSmoother('Forecast')
+table = fcast.Table('Table', objects=[smoother_actual, smoother_cf])
 
 def create_app():
     app = dash.Dash(
@@ -36,28 +33,45 @@ def create_app():
 
     app.layout = html.Div([
         dbc.Row([
-            dbc.Col(smoother.elicitation(app, series)),
-            dbc.Col(table.dash_table(app))
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardHeader('Actual distribution'),
+                    dbc.CardBody(smoother_actual.elicitation(app))
+                ])
+            ]),
+            dbc.Col([
+                dbc.Card([
+                    dbc.CardHeader('Counterfactual forecast'),
+                    dbc.CardBody(smoother_cf.elicitation(app))
+                ])
+            ])
         ]),
-        html.Div(id='graphs')
+        # smoother_actual.state_div(app, table),
+        # smoother_cf.state_div(app, table),
+        html.Br(),
+        html.Div(id='graphs'),
+        *table.render(app),
+        html.Br()
     ], className='container')
 
     @app.callback(
         Output('graphs', 'children'),
-        [Input('Forecast', 'children'), Input('Table', 'data')],
+        [
+            Input('Actual', 'children'),
+            Input('Forecast', 'children'), 
+            Input('Table', 'children')
+        ]
     )
-    def update_graphs(state_dict, data):
-        smoother = fcast.MomentSmoother.load(state_dict)
+    def update_graphs(smoother_actual_state, smoother_cf_state, table_state):
+        smoother_actual = fcast.Smoother.load(smoother_actual_state)
+        smoother_cf = fcast.Smoother.load(smoother_cf_state)
+        table = fcast.Table.load(table_state)
 
         pdf = go.Figure([
-            series_pdf, 
-            smoother.pdf_plot(line={'color': FCAST_COLOR}),
-            fcast.Quantiles.bar_plot(
-                data, 'Data', marker_color=DATA_COLOR, opacity=.4
-            ),
-            fcast.Quantiles.bar_plot(
-                data, 'Forecast', marker_color=FCAST_COLOR, opacity=.4
-            )
+            smoother_actual.pdf_plot(line={'color': ACTUAL_COLOR}),
+            smoother_cf.pdf_plot(line={'color': FCAST_COLOR}),
+            table.bar_plot('Actual', opacity=.4, marker_color=ACTUAL_COLOR),
+            table.bar_plot('Forecast', opacity=.4, marker_color=FCAST_COLOR)
         ])
         pdf.update_layout(
             transition_duration=500, 
@@ -71,8 +85,8 @@ def create_app():
         )
 
         cdf = go.Figure([
-            series_cdf,
-            smoother.cdf_plot(line={'color': FCAST_COLOR})
+            smoother_actual.cdf_plot(line={'color': ACTUAL_COLOR}),
+            smoother_cf.cdf_plot(line={'color': FCAST_COLOR})
         ])
         cdf.update_layout(
             transition_duration=500, 
@@ -83,7 +97,10 @@ def create_app():
             },
             legend={'orientation': 'h'}
         )
-        return [dcc.Graph(figure=pdf), dcc.Graph(figure=cdf)]
+        return dbc.Row([
+            dbc.Col([dcc.Graph(figure=pdf)]), 
+            dbc.Col([dcc.Graph(figure=cdf)])
+        ])
 
     return app
 

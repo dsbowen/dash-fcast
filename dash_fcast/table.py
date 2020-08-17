@@ -1,5 +1,6 @@
 from .series import Series
-from .smoothers import Smoother, MomentSmoother
+from .smoothers import Smoother, MassSmoother, MomentSmoother
+from .utils import get_changed_cells, list_orient
 
 import dash
 import dash_core_components as dcc
@@ -10,6 +11,7 @@ import plotly.express as px
 import plotly.figure_factory as ff
 import plotly.graph_objects as go
 from dash.dependencies import Output, Input, State
+from dash_table.Format import Format, Scheme
 
 import json
 
@@ -39,10 +41,6 @@ class Table():
                 columns=self._get_columns(iv_editable),
                 data=self.get_table_data(),
                 style_as_list_view=True,
-                style_header={
-                    'backgroundColor': 'white',
-                    'fontWeight': 'bold'
-                }
             ),
             html.Div(self.dump(), id=self.name, style={'display': 'none'})
         ]
@@ -70,40 +68,87 @@ class Table():
                 'id': obj.name, 
                 'name': obj.name, 
                 'type': 'numeric',
-                'editable': False #isinstance(d, MassSmoother)
+                'editable': True,
+                'format': Format(scheme=Scheme.fixed, precision=2)
             } 
             for obj in self.objects
         ]
         return [iv_col] + columns
 
     def _register_table_state_callback(self, app):
-        smoother_inputs = [
-            Input(obj.name, 'children') 
-            for obj in self.objects if isinstance(obj, MomentSmoother)
-        ]
-        @app.callback(
-            Output(self.name, 'children'),
-            [Input(self.name+'-table', 'data_timestamp')] + smoother_inputs,
-            [State(self.name+'-table', 'data'), State(self.name, 'children')]
-        )
-        def update_table_state(_, *states):
-            states = list(states)
-            table = Table.load(states.pop())
-            table_data = states.pop()
+        inputs, states = self._get_inputs_states()
+
+        @app.callback(Output(self.name, 'children'), inputs, states)
+        def update_table_state(*inputs_states):
+            params = partition_inputs_states(list(inputs_states))
+            table = Table.load(params['table_state'])
             ctx = dash.callback_context
             triggers = [t['prop_id'].split('.')[0] for t in ctx.triggered]
             if self.name+'-table' in triggers:
-                table.iv = [row['Percentile']/100. for row in table_data]
-                [update_table_data(table, state) for state in states]
-            [
-                update_table_data(table, state) 
-                for state in states if json.loads(state)['name'] in triggers
-            ]
+                register_table_data_change(table, params)
+            register_smoother_state_changes(table, params, triggers)
             return table.dump()
 
-        def update_table_data(table, smoother_state):
-            smoother = Smoother.load(smoother_state)
-            table._data[smoother.name] = [smoother.ppf(q) for q in table.iv]
+        def partition_inputs_states(inputs_states):
+            return {
+                'smoother_inputs': inputs_states[1:len(inputs)],
+                'table_data': inputs_states[len(inputs)],
+                'table_data_previous': inputs_states[len(inputs)+1],
+                'table_state': inputs_states[len(inputs)+2],
+                'smoother_states': inputs_states[len(inputs)+3:]
+            }
+
+        def register_table_data_change(table, params):
+            changed_cells = get_changed_cells(
+                params['table_data'], params['table_data_previous']
+            )
+            changed_cols = [cell[1] for cell in changed_cells]
+            if 'Percentile' in changed_cols:
+                table.iv = [
+                    row['Percentile']/100. for row in params['table_data']
+                ]
+                update_table_data(
+                    table, 
+                    params['smoother_inputs'] + params['smoother_states']
+                )
+            register_smoother_data_changes(table, params, changed_cols)
+
+        def register_smoother_data_changes(table, params, changed_cols):
+            data = list_orient(params['table_data'])
+            for state in params['smoother_states']:
+                if json.loads(state)['name'] in changed_cols:
+                    smoother = Smoother.load(state)
+                    table._data[smoother.name] = data[smoother.name]
+
+        def register_smoother_state_changes(table, params, triggers):
+            update_table_data(
+                table, 
+                [
+                    state for state in params['smoother_inputs'] 
+                    if json.loads(state)['name'] in triggers
+                ]
+            )
+
+        def update_table_data(table, smoother_states):
+            for state in smoother_states:
+                smoother = Smoother.load(state)
+                table._data[smoother.name] = [
+                    smoother.ppf(q) for q in table.iv
+                ]
+
+    def _get_inputs_states(self):
+        inputs = [Input(self.name+'-table', 'data_timestamp')]
+        states = [
+            State(self.name+'-table', 'data'),
+            State(self.name+'-table', 'data_previous'), 
+            State(self.name, 'children')
+        ]
+        for obj in self.objects:
+            if isinstance(obj, MomentSmoother):
+                inputs.append(Input(obj.name, 'children'))
+            elif isinstance(obj, MassSmoother):
+                states.append(State(obj.name, 'children'))
+        return inputs, states
 
     def dump(self):
         return json.dumps(
