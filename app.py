@@ -1,4 +1,30 @@
-# TODO column layouts
+# TODO
+
+# WED
+
+# table state stores data
+# update table detects which smoother changed
+# changes only that smoother's columns
+
+# editable table
+
+# table bar graph
+
+# option for editable IV
+
+# THU
+
+# editable number of rows
+
+# make app
+
+# FRI
+
+# table with IV as percentiles not bins
+
+# SAT-SUN
+
+# tabular elicitation
 
 import dash_fcast as fcast
 
@@ -6,20 +32,19 @@ import dash
 import dash_bootstrap_components as dbc
 import dash_core_components as dcc
 import dash_html_components as html
-import pandas as pd
-import plotly.express as px
 import plotly.graph_objects as go
-from dash.dependencies import Input, Output, State
+from dash.dependencies import ALL, Input, Output, State
 
-ACTUAL_COLOR, FCAST_COLOR = px.colors.qualitative.D3[0:2]
-
-# series = fcast.Series('Data', pd.read_csv('base_data.csv')['x'])
-# series_pdf = series.pdf_plot(line={'color': DATA_COLOR})
-# series_cdf = series.cdf_plot(line={'color': DATA_COLOR})
-
-smoother_actual = fcast.MomentSmoother('Actual')
-smoother_cf = fcast.MomentSmoother('Forecast')
-table = fcast.Table('Table', objects=[smoother_actual, smoother_cf])
+class TestDiv():
+    def to_plotly_json(self):
+        print('here')
+        return {
+            'props': {
+                'children': 'hello world'
+            },
+            'type': 'Div',
+            'namespace': 'dash_html_components'
+        }
 
 def create_app():
     app = dash.Dash(
@@ -32,47 +57,45 @@ def create_app():
     )
 
     app.layout = html.Div([
+        html.Br(),
         dbc.Row([
             dbc.Col([
                 dbc.Card([
                     dbc.CardHeader('Actual distribution'),
-                    dbc.CardBody(smoother_actual.elicitation(app))
+                    dbc.CardBody(fcast.Smoother(app, id='Actual'))
                 ])
             ]),
             dbc.Col([
                 dbc.Card([
                     dbc.CardHeader('Counterfactual forecast'),
-                    dbc.CardBody(smoother_cf.elicitation(app))
+                    dbc.CardBody(fcast.Smoother(app, id='Forecast'))
                 ])
             ])
         ]),
-        # smoother_actual.state_div(app, table),
-        # smoother_cf.state_div(app, table),
         html.Br(),
         html.Div(id='graphs'),
-        *table.render(app),
+        # dbc.Card([
+        #     dbc.CardHeader('Table', style={'text-align': 'center'}),
+        #     dbc.CardBody(
+        #         fcast.Table(
+        #             app, 
+        #             id='Table', 
+        #             bins=[(-3, -1.5), (-1.5, 0), (0, 1.5), (1.5, 3)]
+        #         )
+        #     )
+        # ]),
         html.Br()
     ], className='container')
 
     @app.callback(
         Output('graphs', 'children'),
-        [
-            Input('Actual', 'children'),
-            Input('Forecast', 'children'), 
-            Input('Table', 'children')
-        ]
+        [Input({'type': 'smoother', 'name': ALL}, 'children')]
     )
-    def update_graphs(smoother_actual_state, smoother_cf_state, table_state):
-        smoother_actual = fcast.Smoother.load(smoother_actual_state)
-        smoother_cf = fcast.Smoother.load(smoother_cf_state)
-        table = fcast.Table.load(table_state)
+    def update_graphs(smoother_states):
+        smoothers = [fcast.Smoother.load(state) for state in smoother_states]
+        # table = fcast.Table.load(table_state)
 
-        pdf = go.Figure([
-            smoother_actual.pdf_plot(line={'color': ACTUAL_COLOR}),
-            smoother_cf.pdf_plot(line={'color': FCAST_COLOR}),
-            table.bar_plot('Actual', opacity=.4, marker_color=ACTUAL_COLOR),
-            table.bar_plot('Forecast', opacity=.4, marker_color=FCAST_COLOR)
-        ])
+        pdf = go.Figure([smoother.pdf_plot() for smoother in smoothers])
         pdf.update_layout(
             transition_duration=500, 
             title={
@@ -81,13 +104,11 @@ def create_app():
                 'xanchor': 'center'
             },
             legend={'orientation': 'h'},
-            barmode='overlay'
+            barmode='overlay',
+            yaxis={'rangemode': 'tozero'}
         )
 
-        cdf = go.Figure([
-            smoother_actual.cdf_plot(line={'color': ACTUAL_COLOR}),
-            smoother_cf.cdf_plot(line={'color': FCAST_COLOR})
-        ])
+        cdf = go.Figure([smoother.cdf_plot() for smoother in smoothers])
         cdf.update_layout(
             transition_duration=500, 
             title={
