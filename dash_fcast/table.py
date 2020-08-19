@@ -1,8 +1,8 @@
-from .series import Series
 from .smoother import Smoother
-from .utils import get_changed_cells, list_orient
+from .utils import get_changed_cells, get_trigger_ids, get_smoother_trigger_ids, update_records
 
 import dash
+import dash_bootstrap_components as dbc
 import dash_core_components as dcc
 import dash_html_components as html
 import dash_table
@@ -17,53 +17,127 @@ import json
 
 
 class Table():
-    def __init__(self, app=None, id=None, bins=[]):
-        self.app = app
+    def __init__(
+            self, app=None, id=None, bins=[], datatable={}, row_addable=False
+        ):
         self.id = id
-        self._data = self.get_data(bins)
+        self.bins = bins
+        self.datatable = datatable
+        self.row_addable = row_addable
+        # ids of smoothers displayed in the table
+        self._smoother_ids = []
+        # table data in records format
+        self._data = self.get_data()
+        # indicates that this is the first callback updating this table
+        self._first_callback = True
+        if app is not None:
+            self.register_callbacks(app)
 
     def to_plotly_json(self):
-        layout = [html.Div(id=self.id), html.Div(id=self.id+'container')]
+        children = [
+            # hidden div holding the table state
+            html.Div(
+                self.dump(), 
+                id=self.id, 
+                style={'display': 'none'}
+            ),
+            self.get_table()
+        ]
+        if self.row_addable:
+            children += [
+                html.Br(),
+                dbc.Button('Add Row', id=self.id+'row-adder', color='primary')
+            ]
+        return {
+            'props': {
+                'children': children
+            },
+            'type': 'Div',
+            'namespace': 'dash_html_components'
+        }
 
-        @self.app.callback(
-            Output(self.id, 'children'),
-            [Input({'type': 'smoother', 'name': ALL}, 'children')]
+    def register_callbacks(self, app):
+        """
+        Registers app callbacks for table components.
+
+        Parameters
+        ----------
+        app : dash.Dash
+
+        Returns
+        -------
+        self : dash_fcast.Table
+        """
+        @app.callback(
+            Output({'type': 'table-state', 'table': self.id}, 'children'),
+            [
+                Input(self.id+'table', 'data_timestamp'),
+                Input({'type': 'row-adder', 'table': MATCH}, 'n_clicks'),
+                Input({'type': 'smoother', 'name': ALL}, 'children'),
+            ],
+            [
+                # State({'type': 'table-state': self.id, 'children'), 
+                State(self.id+'table', 'data')
+            ]
         )
-        def update_table_state(smoother_states):
-            ctx = dash.callback_context
-            print(ctx.triggered)
-            smoothers = [Smoother.load(s) for s in smoother_states]
-            return self.dump()
+        def update_table_state(
+                _, add_row, smoother_states, table_state, data
+            ):
+            table = Table.load(table_state)
+            table._handle_data_updates(smoother_states, data)
+            table._handle_add_row_updates(add_row)
+            table._handle_smoother_updates(smoother_states)
+            # indicate that the table has experienced a callback
+            table._first_callback = False
+            return table.dump()
 
-        @self.app.callback(
-            Output(self.id+'container', 'children'),
+        @app.callback(
+            [
+                Output(self.id+'table', 'columns'), 
+                Output(self.id+'table', 'data')
+            ],
             [Input(self.id, 'children')]
         )
         def update_table(table_state):
             table = Table.load(table_state)
-            return table.get_table_layout()
+            return table.get_columns(), table._data
 
-        return layout
+        return self
 
-    def get_table_layout(self, smoothers):
+    def get_table(self):
+        """
+        Returns
+        -------
+        layout : list of dash_table.Datatable
+        """
         return dash_table.DataTable(
-            columns=self.get_columns(smoothers),
-            data=self.get_data(smoothers),
-            style_as_list_view=True
+            id=self.id+'table',
+            columns=self.get_columns(),
+            data=self._data,
+            style_as_list_view=True,
+            **self.datatable
         )
 
-    def get_columns(self, smoothers):
-        def get_smoother_columns(smoother):
+    def get_columns(self):
+        """
+        Returns
+        -------
+        columns : list of dicts
+            List of column dictionaries in dash_table columns format.
+        """
+        def get_smoother_columns(id):
             return [
                 {
-                    'id': smoother.id+'pdf', 
-                    'name': smoother.id,
+                    'id': id+'pdf', 
+                    'name': id,
+                    'editable': False,
                     'type': 'numeric',
                     'format': Format(scheme=Scheme.fixed, precision=2)
                 },
                 {
-                    'id': smoother.id+'cdf', 
-                    'name': smoother.id + ' (cdf)',
+                    'id': id+'cdf', 
+                    'name': id + ' (cdf)',
+                    'editable': False,
                     'type': 'numeric',
                     'format': Format(scheme=Scheme.fixed, precision=2)
                 }
@@ -73,20 +147,36 @@ class Table():
             {
                 'id': 'bin-start', 
                 'name': 'Bin start', 
-                'type': 'numeric',
-                'editable': False # True
+                'type': 'numeric'
             },
             {
                 'id': 'bin-end', 
                 'name': 'Bin end', 
-                'type': 'numeric',
-                'editable': False # True
+                'type': 'numeric'
             }
         ]
-        [columns.extend(get_smoother_columns(s)) for s in smoothers]
+        [
+            columns.extend(get_smoother_columns(id)) 
+            for id in self._smoother_ids
+        ]
         return columns
 
-    def get_data(self, bins, smoothers=[]):
+    def get_data(self, smoothers=[], bins=None):
+        """
+        Parameters
+        ----------
+        smoothers : list of dash_fcast.Smoother, default=[]
+            Smoothers whose data should will be stored.
+
+        bins : list or None, default=None
+            List of (bin start, bin end) lists or tuples. If `None` this 
+            method uses `self.bins`.
+
+        Returns
+        -------
+        records : list
+            List of records (dictionaries) mapping column ids to data entry.
+        """
         def get_record(bin):
             record = {'bin-start': bin[0], 'bin-end': bin[1]}
             for smoother in smoothers:
@@ -97,24 +187,102 @@ class Table():
                 })
             return record
 
+        bins = self.bins if bins is None else bins
         return [get_record(bin) for bin in bins]
 
-    def dump(self, smoothers):
+    def dump(self):
+        """
+        Returns
+        -------
+        state_dict : dict
+            Dictionary representing the table state.
+        """
         return json.dumps({
-            'id': self.id, 
-            'data': self.get_data(smoothers)
+            key: self.__dict__[key] for key in (
+                'id', 
+                'bins',  
+                'datatable',
+                '_smoother_ids', 
+                '_data',
+                '_first_callback'
+            )
         })
 
     @classmethod
-    def load(state_dict):
-        table = Table(id=state_dict['id'])
+    def load(cls, state_dict):
+        """
+        Parameters
+        ----------
+        state_dict : dict
+            Table state dictionary; output from `dash_fcast.Table.dump`.
 
+        Returns
+        -------
+        table : dash_fcast.Table
+            Table specified by the table state.
+        """
+        state_dict = json.loads(state_dict)
+        table = cls(
+            **{key: state_dict[key] for key in ('id', 'bins', 'datatable')}
+        )
+        table._smoother_ids = state_dict['_smoother_ids']
+        table._data = state_dict['_data']
+        table._first_callback = state_dict['_first_callback']
+        return table
 
-    # def load(state_dict):
-    #     state_dict = json.loads(state_dict)
-    #     table = Table(state_dict['name'], state_dict['iv'])
-    #     table._data = state_dict['_data']
-    #     return table
+    def _handle_data_updates(self, smoother_states, data):
+        def update_bins():
+            self.bins = [
+                (record['bin-start'], record['bin-end']) for record in data
+            ]
+
+        def update_row(i):
+            bins = [(data[i]['bin-start'], data[i]['bin-end'])]
+            self._data[i].update(self.get_data(smoothers, bins)[0])
+
+        if self.id+'table' not in get_trigger_ids(dash.callback_context):
+            # no data update
+            return
+
+        update_bins()
+        if len(data) < len(self._data):
+            # row was deleted
+            self._data = data
+            return
+
+        changed_cells = get_changed_cells(self._data, data)
+        changed_rows = [cell[0] for cell in changed_cells]
+        smoothers = [Smoother.load(state) for state in smoother_states]
+        [update_row(i) for i in changed_rows]
+        return self
+
+    def _handle_add_row_updates(self, add_row):
+        print('handling add row')
+        if add_row is not None and add_row > 0:
+            print('add row > 0')
+
+    def _handle_smoother_updates(self, smoother_states):
+        """
+        Handles an update to the table state triggered by a change to a 
+        smoother state. If this is the first callback updating the table 
+        state, update the data for the entire table. Otherwise, find the 
+        smoother which triggered the callback and update only those records.
+        """
+        self._smoother_ids = [
+            json.loads(state)['id'] for state in smoother_states
+        ]
+        smoother_trigger_ids = (
+            self._smoother_ids if self._first_callback
+            else get_smoother_trigger_ids(dash.callback_context)
+        )
+        smoother_states = [
+            state for state in smoother_states 
+            if json.loads(state)['id'] in smoother_trigger_ids
+        ]
+        smoothers = [Smoother.load(state) for state in smoother_states]
+        update_records(self._data, self.get_data(smoothers))
+        return self
+
 
     # def bar_plot(self, col, **kwargs):
     #     data = np.array(self._data[col])

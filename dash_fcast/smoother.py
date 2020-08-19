@@ -7,10 +7,26 @@ import dash_html_components as html
 import dash_table
 import numpy as np
 import plotly.graph_objects as go
-from dash.dependencies import Input, Output, State
+from dash.dependencies import MATCH, Input, Output, State
 from smoother import Smoother as SmootherBase, DerivativeObjective, MassConstraint, MomentConstraint
 
 import json
+
+def register_smoother_callbacks(app, decimals=2):
+    @app.callback(
+        Output({'type': 'mean', 'index': MATCH}, 'placeholder'),
+        [
+            Input({'type': type_, 'index': MATCH}, 'value') 
+            for type_ in ('lb', 'ub')
+        ],
+        [State({'type': 'mean', 'index': MATCH}, 'placeholder')]
+    )
+    def update_mean_placeholder(lb, ub, curr_mean):
+        try:
+            return round((lb + ub)/2., decimals)
+        except:
+            return curr_mean
+
 
 
 class Smoother(SmootherBase):
@@ -28,11 +44,12 @@ class Smoother(SmootherBase):
         Arguments and keyword arguments are passed to the smoother 
         constructor.
     """
-    def __init__(self, app=None, id=None, elicitation={}, *args, **kwargs):
+    def __init__(self, app=None, id=None, callbacks={}, elicitation={}, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.app = app
         self.id = id
         self.elicitation_kwargs = elicitation
+        if app is not None:
+            self.register_moments_callbacks(app, **callbacks)
 
     def to_plotly_json(self):
         return {
@@ -43,7 +60,7 @@ class Smoother(SmootherBase):
             'namespace': 'dash_html_components'
         }
 
-    def elicit_moments(self, lb=0, ub=1, mean=None, std=None, decimals=2):
+    def elicit_moments(self, lb=0, ub=1, mean=None, std=None):
         """
         Creates the layout for eliciting bounds and moments.
 
@@ -79,7 +96,7 @@ class Smoother(SmootherBase):
                 dbc.Label(label, html_for=id, width=6),
                 dbc.Col([
                     dbc.Input(
-                        id=id, 
+                        id={'type': sfx, 'index': id}, 
                         value=value, 
                         type='number', 
                         style={'text-align': 'right'}
@@ -88,7 +105,7 @@ class Smoother(SmootherBase):
             ], row=True)
             return formgroup
 
-        layout = [
+        return [
             html.Div(
                 self.dump(), 
                 id={'type': 'smoother', 'name': self.id}, 
@@ -98,22 +115,23 @@ class Smoother(SmootherBase):
             gen_formgroup('Upper bound', 'ub', ub),
             gen_formgroup('Mean', 'mean', mean),
             gen_formgroup('Standard deviation', 'std', std),
-            dbc.Button('Update', id=self.id+'-update', color='primary'),
+            dbc.Button('Update', id=self.id+'update', color='primary'),
             html.Br()
         ]
 
-        @self.app.callback(
-            Output(self.id+'mean', 'placeholder'),
-            [Input(self.id+sfx, 'value') for sfx in ('lb', 'ub')],
-            [State(self.id+'mean', 'placeholder')]
-        )
-        def update_mean_placeholder(lb, ub, curr_mean):
-            try:
-                return round((lb + ub)/2., decimals)
-            except:
-                return curr_mean
+    def register_moments_callbacks(self, app, decimals=2):
+        # @app.callback(
+        #     Output(self.id+'mean', 'placeholder'),
+        #     [Input(self.id+sfx, 'value') for sfx in ('lb', 'ub')],
+        #     [State(self.id+'mean', 'placeholder')]
+        # )
+        # def update_mean_placeholder(lb, ub, curr_mean):
+        #     try:
+        #         return round((lb + ub)/2., decimals)
+        #     except:
+        #         return curr_mean
 
-        @self.app.callback(
+        @app.callback(
             Output(self.id+'std', 'placeholder'),
             [Input(self.id+sfx, 'value') for sfx in ('lb', 'ub', 'mean')],
             [State(self.id+'std', 'placeholder')]
@@ -125,9 +143,9 @@ class Smoother(SmootherBase):
             except:
                 return curr_placeholder
 
-        @self.app.callback(
+        @app.callback(
             Output({'type': 'smoother', 'name': self.id}, 'children'),
-            [Input(self.id+'-update', 'n_clicks')],
+            [Input(self.id+'update', 'n_clicks')],
             [
                 State(self.id+sfx, 'value') 
                 for sfx in ('lb', 'ub', 'mean', 'std')
@@ -136,7 +154,7 @@ class Smoother(SmootherBase):
         def update_forecast(_, lb, ub, mean, std):
             return Smoother(id=self.id).fit_moments(lb, ub, mean, std).dump()
 
-        return layout
+        return self
 
     def fit_moments(self, lb, ub, mean=None, std=None):
         """

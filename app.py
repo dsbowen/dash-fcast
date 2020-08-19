@@ -2,15 +2,7 @@
 
 # WED
 
-# table state stores data
-# update table detects which smoother changed
-# changes only that smoother's columns
-
-# editable table
-
 # table bar graph
-
-# option for editable IV
 
 # THU
 
@@ -34,17 +26,6 @@ import dash_core_components as dcc
 import dash_html_components as html
 import plotly.graph_objects as go
 from dash.dependencies import ALL, Input, Output, State
-
-class TestDiv():
-    def to_plotly_json(self):
-        print('here')
-        return {
-            'props': {
-                'children': 'hello world'
-            },
-            'type': 'Div',
-            'namespace': 'dash_html_components'
-        }
 
 def create_app():
     app = dash.Dash(
@@ -74,18 +55,22 @@ def create_app():
         ]),
         html.Br(),
         html.Div(id='graphs'),
-        # dbc.Card([
-        #     dbc.CardHeader('Table', style={'text-align': 'center'}),
-        #     dbc.CardBody(
-        #         fcast.Table(
-        #             app, 
-        #             id='Table', 
-        #             bins=[(-3, -1.5), (-1.5, 0), (0, 1.5), (1.5, 3)]
-        #         )
-        #     )
-        # ]),
+        dbc.Card([
+            dbc.CardHeader('Table', style={'text-align': 'center'}),
+            dbc.CardBody(
+                # fcast.Table(
+                #     app, 
+                #     id='Table', 
+                #     bins=[(-3, -1.5), (-1.5, 0), (0, 1.5), (1.5, 3)],
+                #     datatable={'row_deletable': True, 'editable': True},
+                #     # row_addable=True
+                # )
+            )
+        ]),
         html.Br()
     ], className='container')
+
+    fcast.smoother.register_smoother_callbacks(app)
 
     @app.callback(
         Output('graphs', 'children'),
@@ -95,7 +80,10 @@ def create_app():
         smoothers = [fcast.Smoother.load(state) for state in smoother_states]
         # table = fcast.Table.load(table_state)
 
-        pdf = go.Figure([smoother.pdf_plot() for smoother in smoothers])
+        pdf = go.Figure(
+            [smoother.pdf_plot() for smoother in smoothers]
+            # + [table.bar_plot()]
+        )
         pdf.update_layout(
             transition_duration=500, 
             title={
