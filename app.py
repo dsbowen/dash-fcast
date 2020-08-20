@@ -1,7 +1,8 @@
 # TODO
 
-# WED
+# THU
 
+# clean and comment
 # make app
 
 # FRI
@@ -59,7 +60,7 @@ def create_app():
         html.Br(),
         html.Div(id='graphs'),
         dbc.Card([
-            dbc.CardHeader('Table', style={'text-align': 'center'}),
+            dbc.CardHeader('Adjust the bin start and end as specified by the CFP'),
             dbc.CardBody(
                 fcast.Table(
                     id='Table', 
