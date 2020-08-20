@@ -1,5 +1,5 @@
 from .smoother import Smoother
-from .utils import get_changed_cells, get_trigger_ids, get_smoother_trigger_ids, update_records
+from .utils import get_changed_cells, get_trigger_ids, get_smoother_trigger_ids, update_records, records_to_dict
 
 import dash
 import dash_bootstrap_components as dbc
@@ -10,16 +10,47 @@ import numpy as np
 import plotly.express as px
 import plotly.figure_factory as ff
 import plotly.graph_objects as go
-from dash.dependencies import ALL, Input, Output, State
+from dash.dependencies import ALL, MATCH, Input, Output, State
 from dash_table.Format import Format, Scheme
 
 import json
 
+def register_table_callbacks(app):
+    @app.callback(
+        Output({'type': 'table-state', 'table-id': MATCH}, 'children'),
+        [
+            Input({'type': 'table', 'table-id': MATCH}, 'data_timestamp'),
+            Input({'type': 'row-add', 'table-id': MATCH}, 'n_clicks'),
+            Input({'type': 'smoother-state', 'smoother-id': ALL}, 'children')
+        ],
+        [
+            State({'type': 'table-state', 'table-id': MATCH}, 'children'),
+            State({'type': 'table', 'table-id': MATCH}, 'data')
+        ]
+    )
+    def update_table_state(_, add_row, smoother_states, table_state, data):
+        table = Table.load(table_state)
+        table._handle_data_updates(smoother_states, data)
+        table._handle_add_row_updates(add_row)
+        table._handle_smoother_updates(smoother_states)
+        # indicate the table has experienced a callback
+        table._first_callback = False
+        return table.dump()
+
+    @app.callback(
+        [
+            Output({'type': 'table', 'table-id': MATCH}, 'columns'),
+            Output({'type': 'table', 'table-id': MATCH}, 'data')
+        ],
+        [Input({'type': 'table-state', 'table-id': MATCH}, 'children')]
+    )
+    def update_table(table_state):
+        table = Table.load(table_state)
+        return table.get_columns(), table._data
+
 
 class Table():
-    def __init__(
-            self, app=None, id=None, bins=[], datatable={}, row_addable=False
-        ):
+    def __init__(self, id=None, bins=[], datatable={}, row_addable=False):
         self.id = id
         self.bins = bins
         self.datatable = datatable
@@ -30,79 +61,30 @@ class Table():
         self._data = self.get_data()
         # indicates that this is the first callback updating this table
         self._first_callback = True
-        if app is not None:
-            self.register_callbacks(app)
 
     def to_plotly_json(self):
-        children = [
-            # hidden div holding the table state
-            html.Div(
-                self.dump(), 
-                id=self.id, 
-                style={'display': 'none'}
-            ),
-            self.get_table()
-        ]
-        if self.row_addable:
-            children += [
-                html.Br(),
-                dbc.Button('Add Row', id=self.id+'row-adder', color='primary')
-            ]
         return {
             'props': {
-                'children': children
+                'children': [
+                    # hidden div holding the table state
+                    html.Div(
+                        self.dump(), 
+                        id={'type': 'table-state', 'table-id': self.id}, 
+                        style={'display': 'none'}
+                    ),
+                    self.get_table(),
+                    html.Br(),
+                    dbc.Button(
+                        'Add row',
+                        id={'type': 'row-add', 'table-id': self.id},
+                        color='primary',
+                        style={} if self.row_addable else {'display': 'none'}
+                    )
+                ]
             },
             'type': 'Div',
             'namespace': 'dash_html_components'
         }
-
-    def register_callbacks(self, app):
-        """
-        Registers app callbacks for table components.
-
-        Parameters
-        ----------
-        app : dash.Dash
-
-        Returns
-        -------
-        self : dash_fcast.Table
-        """
-        @app.callback(
-            Output({'type': 'table-state', 'table': self.id}, 'children'),
-            [
-                Input(self.id+'table', 'data_timestamp'),
-                Input({'type': 'row-adder', 'table': MATCH}, 'n_clicks'),
-                Input({'type': 'smoother', 'name': ALL}, 'children'),
-            ],
-            [
-                # State({'type': 'table-state': self.id, 'children'), 
-                State(self.id+'table', 'data')
-            ]
-        )
-        def update_table_state(
-                _, add_row, smoother_states, table_state, data
-            ):
-            table = Table.load(table_state)
-            table._handle_data_updates(smoother_states, data)
-            table._handle_add_row_updates(add_row)
-            table._handle_smoother_updates(smoother_states)
-            # indicate that the table has experienced a callback
-            table._first_callback = False
-            return table.dump()
-
-        @app.callback(
-            [
-                Output(self.id+'table', 'columns'), 
-                Output(self.id+'table', 'data')
-            ],
-            [Input(self.id, 'children')]
-        )
-        def update_table(table_state):
-            table = Table.load(table_state)
-            return table.get_columns(), table._data
-
-        return self
 
     def get_table(self):
         """
@@ -111,7 +93,7 @@ class Table():
         layout : list of dash_table.Datatable
         """
         return dash_table.DataTable(
-            id=self.id+'table',
+            id={'type': 'table', 'table-id': self.id},
             columns=self.get_columns(),
             data=self._data,
             style_as_list_view=True,
@@ -180,9 +162,11 @@ class Table():
         def get_record(bin):
             record = {'bin-start': bin[0], 'bin-end': bin[1]}
             for smoother in smoothers:
-                cdf = smoother.cdf(bin[1])
+                bin_start = -np.inf if bin[0] is None else bin[0]
+                bin_end = np.inf if bin[1] is None else bin[1]
+                cdf = 100*smoother.cdf(bin_end)
                 record.update({
-                    smoother.id+'pdf': cdf - smoother.cdf(bin[0]),
+                    smoother.id+'pdf': cdf - 100*smoother.cdf(bin_start),
                     smoother.id+'cdf': cdf
                 })
             return record
@@ -240,7 +224,8 @@ class Table():
             bins = [(data[i]['bin-start'], data[i]['bin-end'])]
             self._data[i].update(self.get_data(smoothers, bins)[0])
 
-        if self.id+'table' not in get_trigger_ids(dash.callback_context):
+        trigger_ids = get_trigger_ids(dash.callback_context)
+        if {'type': 'table', 'table-id': self.id} not in trigger_ids:
             # no data update
             return
 
@@ -257,9 +242,15 @@ class Table():
         return self
 
     def _handle_add_row_updates(self, add_row):
-        print('handling add row')
-        if add_row is not None and add_row > 0:
-            print('add row > 0')
+        trigger_ids = get_trigger_ids(dash.callback_context)
+        if not (
+            add_row 
+            and {'type': 'row-add', 'table-id': self.id} in trigger_ids
+        ):
+            return
+
+        self.bins.append((None, None))
+        self._data.append({})
 
     def _handle_smoother_updates(self, smoother_states):
         """
@@ -283,14 +274,16 @@ class Table():
         update_records(self._data, self.get_data(smoothers))
         return self
 
-
-    # def bar_plot(self, col, **kwargs):
-    #     data = np.array(self._data[col])
-    #     x = (data[:-1] + data[1:]) / 2
-    #     width = np.diff(data)
-    #     y = np.diff(self.iv) / width
-    #     name = kwargs.get('name', col)
-    #     return go.Bar(x=x, y=y, width=width, name=name, **kwargs)
+    def bar_plot(self, col, **kwargs):
+        x, y, width = [], [], []
+        for record in self._data:
+            bin_start, bin_end = record['bin-start'], record['bin-end']
+            if not (bin_start is None or bin_end is None):
+                x.append((bin_start + bin_end)/2.)
+                width.append(bin_end - bin_start)
+                y.append(record[col+'pdf'] / (100*width[-1])) 
+        name = kwargs.get('name', col)
+        return go.Bar(x=x, y=y, width=width, name=name, **kwargs)
     
 
 # class Table():

@@ -2,12 +2,6 @@
 
 # WED
 
-# table bar graph
-
-# THU
-
-# editable number of rows
-
 # make app
 
 # FRI
@@ -24,8 +18,11 @@ import dash
 import dash_bootstrap_components as dbc
 import dash_core_components as dcc
 import dash_html_components as html
+import plotly.express as px
 import plotly.graph_objects as go
 from dash.dependencies import ALL, Input, Output, State
+
+ACTUAL_COLOR, FCAST_COLOR = px.colors.qualitative.Plotly[:2]
 
 def create_app():
     app = dash.Dash(
@@ -43,13 +40,19 @@ def create_app():
             dbc.Col([
                 dbc.Card([
                     dbc.CardHeader('Actual distribution'),
-                    dbc.CardBody(fcast.Smoother(app, id='Actual'))
+                    dbc.CardBody([
+                        fcast.Smoother(id='Actual'),
+                        html.Br()
+                    ])
                 ])
             ]),
             dbc.Col([
                 dbc.Card([
                     dbc.CardHeader('Counterfactual forecast'),
-                    dbc.CardBody(fcast.Smoother(app, id='Forecast'))
+                    dbc.CardBody([
+                        fcast.Smoother(id='Forecast'),
+                        html.Br()
+                    ])
                 ])
             ])
         ]),
@@ -58,32 +61,48 @@ def create_app():
         dbc.Card([
             dbc.CardHeader('Table', style={'text-align': 'center'}),
             dbc.CardBody(
-                # fcast.Table(
-                #     app, 
-                #     id='Table', 
-                #     bins=[(-3, -1.5), (-1.5, 0), (0, 1.5), (1.5, 3)],
-                #     datatable={'row_deletable': True, 'editable': True},
-                #     # row_addable=True
-                # )
+                fcast.Table(
+                    id='Table', 
+                    bins=[(0, .25), (.25, .5), (.5, .75), (.75, 1)],
+                    datatable={'row_deletable': True, 'editable': True},
+                    row_addable=True
+                )
             )
         ]),
         html.Br()
     ], className='container')
 
     fcast.smoother.register_smoother_callbacks(app)
+    fcast.table.register_table_callbacks(app)
 
     @app.callback(
         Output('graphs', 'children'),
-        [Input({'type': 'smoother', 'name': ALL}, 'children')]
+        [
+            Input(
+                {'type': 'smoother-state', 'smoother-id': 'Actual'}, 
+                'children'
+            ),
+            Input(
+                {'type': 'smoother-state', 'smoother-id': 'Forecast'},
+                'children'
+            ),
+            Input(
+                {'type': 'table-state', 'table-id': 'Table'}, 
+                'children'
+            )
+        ]
     )
-    def update_graphs(smoother_states):
-        smoothers = [fcast.Smoother.load(state) for state in smoother_states]
-        # table = fcast.Table.load(table_state)
+    def update_graphs(actual_state, fcast_state, table_state):
+        actual_smoother = fcast.Smoother.load(actual_state)
+        fcast_smoother = fcast.Smoother.load(fcast_state)
+        table = fcast.Table.load(table_state)
 
-        pdf = go.Figure(
-            [smoother.pdf_plot() for smoother in smoothers]
-            # + [table.bar_plot()]
-        )
+        pdf = go.Figure([
+            actual_smoother.pdf_plot(line={'color': ACTUAL_COLOR}),
+            fcast_smoother.pdf_plot(line={'color': FCAST_COLOR}),
+            table.bar_plot('Actual', opacity=.4, marker_color=ACTUAL_COLOR),
+            table.bar_plot('Forecast', opacity=.4, marker_color=FCAST_COLOR)
+        ])
         pdf.update_layout(
             transition_duration=500, 
             title={
@@ -96,7 +115,10 @@ def create_app():
             yaxis={'rangemode': 'tozero'}
         )
 
-        cdf = go.Figure([smoother.cdf_plot() for smoother in smoothers])
+        cdf = go.Figure([
+            actual_smoother.cdf_plot(line={'color': ACTUAL_COLOR}),
+            fcast_smoother.cdf_plot(line={'color': FCAST_COLOR})
+        ])
         cdf.update_layout(
             transition_duration=500, 
             title={

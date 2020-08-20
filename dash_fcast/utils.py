@@ -45,8 +45,8 @@ def get_smoother_trigger_ids(ctx):
     """
     trigger_ids = get_trigger_ids(ctx)
     return [
-        id['name'] for id in trigger_ids 
-        if isinstance(id, dict) and id.get('type') == 'smoother'
+        id['smoother-id'] for id in trigger_ids 
+        if isinstance(id, dict) and id.get('type') == 'smoother-state'
     ]
 
 def update_records(curr_records, updates):
