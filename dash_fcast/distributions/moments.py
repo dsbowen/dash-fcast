@@ -1,68 +1,22 @@
-"""# Smoothers"""
-
-from .utils import get_changed_cells
+"""# Moments"""
 
 import dash_bootstrap_components as dbc
 import dash_html_components as html
-import dash_table
 import numpy as np
 import plotly.graph_objects as go
 from dash.dependencies import MATCH, Input, Output, State
-from smoother import Smoother as SmootherBase, DerivativeObjective, MassConstraint, MomentConstraint
+from smoother import Smoother, DerivativeObjective, MassConstraint, MomentConstraint
 
 import json
 
-def register_smoother_callbacks(app, decimals=2):
-    @app.callback(
-        Output({'type': 'mean', 'smoother-id': MATCH}, 'placeholder'),
-        [
-            Input({'type': 'lb', 'smoother-id': MATCH}, 'value'),
-            Input({'type': 'ub', 'smoother-id': MATCH}, 'value')
-        ],
-        [State({'type': 'mean', 'smoother-id': MATCH}, 'placeholder')]
-    )
-    def update_mean_placeholder(lb, ub, curr_mean):
-        try:
-            return round((lb + ub)/2., decimals)
-        except:
-            return curr_mean
-
-    @app.callback(
-        Output({'type': 'std', 'smoother-id': MATCH}, 'placeholder'),
-        [
-            Input({'type': 'lb', 'smoother-id': MATCH}, 'value'), 
-            Input({'type': 'ub', 'smoother-id': MATCH}, 'value'),
-            Input({'type': 'mean', 'smoother-id': MATCH}, 'value')
-        ],
-        [State({'type': 'std', 'smoother-id': MATCH}, 'placeholder')]
-    )
-    def update_std_placeholder(lb, ub, mean, curr_placeholder):
-        try:
-            std = Smoother().fit_moments(lb, ub, mean).std()
-            return round(std, decimals)
-        except:
-            return curr_placeholder
-
-    @app.callback(
-        Output({'type': 'smoother-state', 'smoother-id': MATCH}, 'children'),
-        [Input({'type': 'update', 'smoother-id': MATCH}, 'n_clicks')],
-        [
-            State({'type': 'lb', 'smoother-id': MATCH}, 'value'),
-            State({'type': 'ub', 'smoother-id': MATCH}, 'value'),
-            State({'type': 'mean', 'smoother-id': MATCH}, 'value'),
-            State({'type': 'std', 'smoother-id': MATCH}, 'value'),
-            State({'type': 'smoother-state', 'smoother-id': MATCH}, 'id')
-        ]
-    )
-    def update_forecast(_, lb, ub, mean, std, id):
-        smoother = Smoother(id['smoother-id']).fit_moments(lb, ub, mean, std)
-        return smoother.dump()
+def get_id(type_, dist_id):
+    return {'type': type_, 'dist-cls': 'moments', 'dist-id': dist_id}
 
 
-
-class Smoother(SmootherBase):
+class Moments(Smoother):
     """
-    Base for smoother classes. Inherits from `smoother.Smoother`.
+    Distribution generated from moments elicitation. Inherits from 
+    `smoother.Smoother`.
 
     Parameters
     ----------
@@ -75,21 +29,20 @@ class Smoother(SmootherBase):
         Arguments and keyword arguments are passed to the smoother 
         constructor.
     """
-    def __init__(self, id=None, elicitation={}, *args, **kwargs):
+    def __init__(self, id=None, lb=0, ub=1, mean=None, std=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.id = id
-        self.elicitation_kwargs = elicitation
+        self.fit(lb, ub, mean, std)
+        self._elicitation_args = lb, ub, mean, std
 
     def to_plotly_json(self):
         return {
-            'props': {
-                'children': self.elicit_moments(**self.elicitation_kwargs)
-            },
+            'props': {'children': self.elicitation(*self._elicitation_args)},
             'type': 'Div',
             'namespace': 'dash_html_components'
         }
 
-    def elicit_moments(self, lb=0, ub=1, mean=None, std=None):
+    def elicitation(self, lb=0, ub=1, mean=None, std=None):
         """
         Creates the layout for eliciting bounds and moments.
 
@@ -120,7 +73,7 @@ class Smoother(SmootherBase):
             Elicitation layout.
         """
         def gen_formgroup(label, type_, value):
-            id = {'type': type_, 'smoother-id': self.id}
+            id = get_id(type_, self.id)
             formgroup = dbc.FormGroup([
                 dbc.Label(label, html_for=id, width=6),
                 dbc.Col([
@@ -137,7 +90,7 @@ class Smoother(SmootherBase):
         return [
             html.Div(
                 self.dump(), 
-                id={'type': 'smoother-state', 'smoother-id': self.id}, 
+                id=get_id('state', self.id), 
                 style={'display': 'none'}
             ),
             gen_formgroup('Lower bound', 'lb', lb),
@@ -145,13 +98,56 @@ class Smoother(SmootherBase):
             gen_formgroup('Mean', 'mean', mean),
             gen_formgroup('Standard deviation', 'std', std),
             dbc.Button(
-                'Update', 
-                id={'type': 'update', 'smoother-id': self.id}, 
-                color='primary'
+                'Update', id=get_id('update', self.id), color='primary'
             )
         ]
 
-    def fit_moments(self, lb, ub, mean=None, std=None):
+    @staticmethod
+    def register_callbacks(app, decimals=2):
+        @app.callback(
+            Output(get_id('mean', MATCH), 'placeholder'),
+            [Input(get_id(type_, MATCH), 'value') for type_ in ('lb', 'ub')],
+            [State(get_id('mean', MATCH), 'placeholder')]
+        )
+        def update_mean_placeholder(lb, ub, curr_mean):
+            try:
+                return round((lb + ub)/2., decimals)
+            except:
+                return curr_mean
+
+        @app.callback(
+            Output(get_id('std', MATCH), 'placeholder'),
+            [
+                Input(get_id(type_, MATCH), 'value') 
+                for type_ in ('lb', 'ub', 'mean')
+            ],
+            [State(get_id('std', MATCH), 'placeholder')]
+        )
+        def update_std_placeholder(lb, ub, mean, curr_placeholder):
+            try:
+                return round(Moments(None, lb, ub, mean).std(), decimals)
+            except:
+                return curr_placeholder
+
+        @app.callback(
+            Output(get_id('state', MATCH), 'children'),
+            [Input(get_id('update', MATCH), 'n_clicks')],
+            [
+                State(get_id('state', MATCH), 'id'),
+                State(get_id('state', MATCH), 'children'),
+                State(get_id('lb', MATCH), 'value'),
+                State(get_id('ub', MATCH), 'value'),
+                State(get_id('mean', MATCH), 'value'),
+                State(get_id('std', MATCH), 'value')
+            ]
+        )
+        def update_forecast(_, id, children, lb, ub, mean, std):
+            try:
+                return Moments(id['dist-id'], lb, ub, mean, std).dump()
+            except:
+                return children
+
+    def fit(self, lb, ub, mean=None, std=None):
         """
         Fit the smoother given bounds and moments constraints.
 
@@ -234,10 +230,10 @@ class Smoother(SmootherBase):
             Smoother specified by the state dictionary.
         """
         state_dict = json.loads(state_dict)
-        smoother = cls(id=state_dict['id'])
-        smoother.x = np.array(state_dict['x'])
-        smoother._f_x = np.array(state_dict['_f_x'])
-        return smoother
+        dist = cls(id=state_dict['id'])
+        dist.x = np.array(state_dict['x'])
+        dist._f_x = np.array(state_dict['_f_x'])
+        return dist
 
     def pdf_plot(self, **kwargs):
         """

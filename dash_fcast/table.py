@@ -15,39 +15,6 @@ from dash_table.Format import Format, Scheme
 
 import json
 
-def register_table_callbacks(app):
-    @app.callback(
-        Output({'type': 'table-state', 'table-id': MATCH}, 'children'),
-        [
-            Input({'type': 'table', 'table-id': MATCH}, 'data_timestamp'),
-            Input({'type': 'row-add', 'table-id': MATCH}, 'n_clicks'),
-            Input({'type': 'smoother-state', 'smoother-id': ALL}, 'children')
-        ],
-        [
-            State({'type': 'table-state', 'table-id': MATCH}, 'children'),
-            State({'type': 'table', 'table-id': MATCH}, 'data')
-        ]
-    )
-    def update_table_state(_, add_row, smoother_states, table_state, data):
-        table = Table.load(table_state)
-        table._handle_data_updates(smoother_states, data)
-        table._handle_add_row_updates(add_row)
-        table._handle_smoother_updates(smoother_states)
-        # indicate the table has experienced a callback
-        table._first_callback = False
-        return table.dump()
-
-    @app.callback(
-        [
-            Output({'type': 'table', 'table-id': MATCH}, 'columns'),
-            Output({'type': 'table', 'table-id': MATCH}, 'data')
-        ],
-        [Input({'type': 'table-state', 'table-id': MATCH}, 'children')]
-    )
-    def update_table(table_state):
-        table = Table.load(table_state)
-        return table.get_columns(), table._data
-
 
 class Table():
     def __init__(self, id=None, bins=[], datatable={}, row_addable=False):
@@ -56,7 +23,7 @@ class Table():
         self.datatable = datatable
         self.row_addable = row_addable
         # ids of smoothers displayed in the table
-        self._smoother_ids = []
+        self._dist_ids = []
         # table data in records format
         self._data = self.get_data()
         # indicates that this is the first callback updating this table
@@ -139,7 +106,7 @@ class Table():
         ]
         [
             columns.extend(get_smoother_columns(id)) 
-            for id in self._smoother_ids
+            for id in self._dist_ids
         ]
         return columns
 
@@ -186,7 +153,7 @@ class Table():
                 'id', 
                 'bins',  
                 'datatable',
-                '_smoother_ids', 
+                '_dist_ids', 
                 '_data',
                 '_first_callback'
             )
@@ -209,12 +176,46 @@ class Table():
         table = cls(
             **{key: state_dict[key] for key in ('id', 'bins', 'datatable')}
         )
-        table._smoother_ids = state_dict['_smoother_ids']
+        table._dist_ids = state_dict['_dist_ids']
         table._data = state_dict['_data']
         table._first_callback = state_dict['_first_callback']
         return table
 
-    def _handle_data_updates(self, smoother_states, data):
+    @staticmethod
+    def register_table_callbacks(app):
+        @app.callback(
+            Output({'type': 'table-state', 'table-id': MATCH}, 'children'),
+            [
+                Input({'type': 'table', 'table-id': MATCH}, 'data_timestamp'),
+                Input({'type': 'row-add', 'table-id': MATCH}, 'n_clicks'),
+                Input({'type': 'dist-state', 'dist-id': ALL}, 'children')
+            ],
+            [
+                State({'type': 'table-state', 'table-id': MATCH}, 'children'),
+                State({'type': 'table', 'table-id': MATCH}, 'data')
+            ]
+        )
+        def update_table_state(_, add_row, dist_states, table_state, data):
+            table = Table.load(table_state)
+            table._handle_data_updates(dist_states, data)
+            table._handle_add_row_updates(add_row)
+            table._handle_dist_updates(dist_states)
+            # indicate the table has experienced a callback
+            table._first_callback = False
+            return table.dump()
+
+        @app.callback(
+            [
+                Output({'type': 'table', 'table-id': MATCH}, 'columns'),
+                Output({'type': 'table', 'table-id': MATCH}, 'data')
+            ],
+            [Input({'type': 'table-state', 'table-id': MATCH}, 'children')]
+        )
+        def update_table(table_state):
+            table = Table.load(table_state)
+            return table.get_columns(), table._data
+
+    def _handle_data_updates(self, dist_states, data):
         def update_bins():
             self.bins = [
                 (record['bin-start'], record['bin-end']) for record in data
@@ -237,7 +238,7 @@ class Table():
 
         changed_cells = get_changed_cells(self._data, data)
         changed_rows = [cell[0] for cell in changed_cells]
-        smoothers = [Smoother.load(state) for state in smoother_states]
+        smoothers = [Smoother.load(state) for state in dist_states]
         [update_row(i) for i in changed_rows]
         return self
 
@@ -252,25 +253,25 @@ class Table():
         self.bins.append((None, None))
         self._data.append({})
 
-    def _handle_smoother_updates(self, smoother_states):
+    def _handle_smoother_updates(self, dist_states):
         """
         Handles an update to the table state triggered by a change to a 
         smoother state. If this is the first callback updating the table 
         state, update the data for the entire table. Otherwise, find the 
         smoother which triggered the callback and update only those records.
         """
-        self._smoother_ids = [
-            json.loads(state)['id'] for state in smoother_states
+        self._dist_ids = [
+            json.loads(state)['id'] for state in dist_states
         ]
         smoother_trigger_ids = (
-            self._smoother_ids if self._first_callback
+            self._dist_ids if self._first_callback
             else get_smoother_trigger_ids(dash.callback_context)
         )
-        smoother_states = [
-            state for state in smoother_states 
+        dist_states = [
+            state for state in dist_states 
             if json.loads(state)['id'] in smoother_trigger_ids
         ]
-        smoothers = [Smoother.load(state) for state in smoother_states]
+        smoothers = [Smoother.load(state) for state in dist_states]
         update_records(self._data, self.get_data(smoothers))
         return self
 
@@ -365,7 +366,7 @@ class Table():
 #                 'table_data': inputs_states[len(inputs)],
 #                 'table_data_previous': inputs_states[len(inputs)+1],
 #                 'table_state': inputs_states[len(inputs)+2],
-#                 'smoother_states': inputs_states[len(inputs)+3:]
+#                 'dist_states': inputs_states[len(inputs)+3:]
 #             }
 
 #         def register_table_data_change(table, params):
@@ -379,13 +380,13 @@ class Table():
 #                 ]
 #                 update_table_data(
 #                     table, 
-#                     params['smoother_inputs'] + params['smoother_states']
+#                     params['smoother_inputs'] + params['dist_states']
 #                 )
 #             register_smoother_data_changes(table, params, changed_cols)
 
 #         def register_smoother_data_changes(table, params, changed_cols):
 #             data = list_orient(params['table_data'])
-#             for state in params['smoother_states']:
+#             for state in params['dist_states']:
 #                 if json.loads(state)['name'] in changed_cols:
 #                     smoother = Smoother.load(state)
 #                     table._data[smoother.id] = data[smoother.id]
@@ -399,8 +400,8 @@ class Table():
 #                 ]
 #             )
 
-#         def update_table_data(table, smoother_states):
-#             for state in smoother_states:
+#         def update_table_data(table, dist_states):
+#             for state in dist_states:
 #                 smoother = Smoother.load(state)
 #                 table._data[smoother.id] = [
 #                     smoother.ppf(q) for q in table.iv
