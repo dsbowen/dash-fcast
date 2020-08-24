@@ -48,19 +48,19 @@ def create_app():
         dbc.Card([
             dbc.CardHeader('Adjust the bin start and end as specified by the CFP'),
             dbc.CardBody(
-                # fcast.Table(
-                #     id='Table', 
-                #     bins=[(0, .25), (.25, .5), (.5, .75), (.75, 1)],
-                #     datatable={'row_deletable': True, 'editable': True},
-                #     row_addable=True
-                # )
+                fcast.Table(
+                    id='Table', 
+                    bins=[(0, .25), (.25, .5), (.5, .75), (.75, 1)],
+                    datatable={'row_deletable': True, 'editable': True},
+                    row_addable=True
+                )
             )
         ]),
         html.Br()
     ], className='container')
 
     dist.Moments.register_callbacks(app)
-    # fcast.table.register_table_callbacks(app)
+    fcast.Table.register_callbacks(app)
 
     @app.callback(
         Output('graphs', 'children'),

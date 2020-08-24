@@ -39,7 +39,7 @@ def get_trigger_ids(ctx):
 
     return [get_trigger_id(component) for component in ctx.triggered]
 
-def get_smoother_trigger_ids(ctx):
+def get_dist_trigger_ids(ctx):
     """
     Parameters
     ----------
@@ -52,8 +52,8 @@ def get_smoother_trigger_ids(ctx):
     """
     trigger_ids = get_trigger_ids(ctx)
     return [
-        id['smoother-id'] for id in trigger_ids 
-        if isinstance(id, dict) and id.get('type') == 'smoother-state'
+        id['dist-id'] for id in trigger_ids 
+        if isinstance(id, dict) and id.get('dist-cls')
     ]
 
 def update_records(curr_records, updates):

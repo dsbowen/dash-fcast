@@ -124,7 +124,7 @@ class Moments(Smoother):
         )
         def update_std_placeholder(lb, ub, mean, curr_placeholder):
             try:
-                return round(Moments(None, lb, ub, mean).std(), decimals)
+                return round(Moments().fit(lb, ub, mean).std(), decimals)
             except:
                 return curr_placeholder
 
@@ -142,7 +142,7 @@ class Moments(Smoother):
         )
         def update_forecast(_, id, children, lb, ub, mean, std):
             try:
-                return Moments(id['dist-id'], lb, ub, mean, std).dump()
+                return Moments(id['dist-id']).fit(lb, ub, mean, std).dump()
             except:
                 return children
 
