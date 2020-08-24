@@ -5,7 +5,7 @@ import dash_html_components as html
 import numpy as np
 import plotly.graph_objects as go
 from dash.dependencies import MATCH, Input, Output, State
-from smoother import Smoother, DerivativeObjective, MassConstraint, MomentConstraint
+from smoother import Smoother, MomentConstraint
 
 import json
 
@@ -32,7 +32,6 @@ class Moments(Smoother):
     def __init__(self, id=None, lb=0, ub=1, mean=None, std=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.id = id
-        self.fit(lb, ub, mean, std)
         self._elicitation_args = lb, ub, mean, std
 
     def to_plotly_json(self):
@@ -178,31 +177,6 @@ class Moments(Smoother):
                 MomentConstraint(std, degree=2, type_='central', norm=True)
             )
         return super().fit(lb, ub, constraints)
-
-    def fit_quantiles(self, quantiles, values, derivative=2):
-        """
-        Fit the smoother given masses constraints.
-
-        Parameters
-        ----------
-        quantiles : list of float or numpy.array
-            Ordered list of quantiles.
-
-        values : list of float or numpy.array
-            Ordered list of values corresponding to `quantiles`.
-
-        derivative : int, default=2
-            Deriviate of the derivative smoothing function to maximize. e.g. 
-            `2` means the smoother will minimize the mean squaure second 
-            derivitive.
-        """
-        params = zip(values[:-1], values[1:], np.diff(quantiles))
-        return super().fit(
-            values[0], 
-            values[-1],
-            [MassConstraint(lb, ub, mass) for lb, ub, mass in params], 
-            DerivativeObjective(derivative)
-        )
 
     def dump(self):
         """

@@ -35,7 +35,8 @@ def create_app():
                                 'style_as_list_view': True,
                                 'row_deletable': True
                             },
-                            row_addable=True
+                            row_addable=True,
+                            smoother=True
                         )
                     ])
                 ]),
@@ -51,7 +52,8 @@ def create_app():
                                 'style_as_list_view': True,
                                 'row_deletable': True
                             },
-                            row_addable=True
+                            row_addable=True,
+                            smoother=True
                         )
                     ])
                 ]),

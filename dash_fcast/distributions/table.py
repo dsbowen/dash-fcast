@@ -10,6 +10,7 @@ import numpy as np
 import plotly.graph_objects as go
 from dash.dependencies import MATCH, Input, Output, State
 from dash_table.Format import Format, Scheme
+from smoother import Smoother, DerivativeObjective, MassConstraint
 
 import json
 
@@ -17,7 +18,7 @@ def get_id(type_, dist_id):
     return {'type': type_, 'dist-cls': 'table', 'dist-id': dist_id}
 
 
-class Table():
+class Table(Smoother):
     def __init__(
             self, 
             id=None, 
@@ -25,6 +26,7 @@ class Table():
             pdf=[.25, .25, .25, .25], 
             datatable={}, 
             row_addable=False,
+            smoother=False,
             *args, **kwargs
         ):
         super().__init__(*args, **kwargs)
@@ -33,6 +35,34 @@ class Table():
         self.pdf = pdf
         self.datatable = datatable
         self.row_addable = row_addable
+        self.smoother = smoother
+
+    def fit(self, bins=None, pdf=None, derivative=2):
+        """
+        Fit the smoother given masses constraints.
+
+        Parameters
+        ----------
+        quantiles : list of float or numpy.array
+            Ordered list of quantiles.
+
+        values : list of float or numpy.array
+            Ordered list of values corresponding to `quantiles`.
+
+        derivative : int, default=2
+            Deriviate of the derivative smoothing function to maximize. e.g. 
+            `2` means the smoother will minimize the mean squaure second 
+            derivitive.
+        """
+        bins = self.bins if bins is None else bins
+        pdf = self.pdf if pdf is None else pdf
+        params = zip(bins[:-1], bins[1:], pdf)
+        return super().fit(
+            bins[0], 
+            bins[-1],
+            [MassConstraint(lb, ub, mass) for lb, ub, mass in params],
+            DerivativeObjective(derivative)
+        )
 
     def to_plotly_json(self):
         return {
@@ -146,13 +176,26 @@ class Table():
             'bins': self.bins,
             'pdf': self.pdf,
             'datatable': self.datatable,
-            'row_addable': self.row_addable
+            'row_addable': self.row_addable,
+            'smoother': self.smoother,
+            'x': list(self.x),
+            '_f_x': list(self._f_x)
         })
 
     @classmethod
     def load(cls, state_dict):
         state = json.loads(state_dict)
-        return cls(**state)
+        table = cls(
+            state['id'],
+            state['bins'],
+            state['pdf'],
+            state['datatable'],
+            state['row_addable'],
+            state['smoother']
+        )
+        table.x = np.array(state['x'])
+        table._f_x = np.array(state['_f_x'])
+        return table
 
     def _handle_data_updates(self, data, trigger_ids):
         def handle_row_delete():
@@ -188,8 +231,11 @@ class Table():
             return
         prev_data = self.get_data()
         if len(data) < len(prev_data):
-            return handle_row_delete()
-        return handle_data_update()
+            handle_row_delete()
+        else:
+            handle_data_update()
+        if self.smoother:
+            self.fit()
 
     def _handle_row_updates(self, add_row, trigger_ids):
         if not (add_row and get_id('row-add', self.id) in trigger_ids):
@@ -198,6 +244,9 @@ class Table():
         self.pdf.append(0)
 
     def pdf_plot(self, **kwargs):
+        name = kwargs.pop('name', self.id)
+        if self.smoother:
+            return go.Scatter(x=self.x, y=self.f_x, name=name, **kwargs)
         heights = np.array(self.pdf) / np.diff(self.bins)
         x, y = [self.bins[0]], [heights[0]]
         values = zip(self.bins[1:], heights[:-1], heights[1:])
@@ -206,12 +255,13 @@ class Table():
             y += [height_prev, height_curr]
         x.append(self.bins[-1])
         y.append(heights[-1])
-        name = kwargs.pop('name', self.id)
         return go.Scatter(x=x, y=y, name=name, **kwargs)
 
     def cdf_plot(self, **kwargs):
-        F_x = np.insert(np.cumsum(self.pdf), 0, 0)
         name = kwargs.pop('name', self.id)
+        if self.smoother:
+            return go.Scatter(x=self.x, y=self.F_x, name=name, **kwargs)
+        F_x = np.insert(np.cumsum(self.pdf), 0, 0)
         return go.Scatter(x=self.bins, y=F_x, name=name, **kwargs)
 
     def bar_plot(self, **kwargs):
