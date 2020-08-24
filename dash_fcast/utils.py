@@ -1,14 +1,21 @@
 import json
 
-def get_changed_cells(curr_records, prev_records):
-    changed_cells = []
+def get_changed_cell(curr_records, prev_records):
     records = zip(curr_records, prev_records)
     for i, (curr_record, prev_record) in enumerate(records):
         keys = set(list(curr_record.keys()) + list(prev_record.keys()))
         for key in keys:
             if curr_record.get(key) != prev_record.get(key):
-                changed_cells.append((i, key))
-    return changed_cells
+                return i, key
+    return None, None
+
+def get_deleted_row(curr_records, prev_records):
+    records = zip(curr_records, prev_records)
+    for i, (curr_record, prev_record) in enumerate(records):
+        if curr_record != prev_record:
+            return i
+    # last row was deleted
+    return len(curr_records)
 
 def get_trigger_ids(ctx):
     """

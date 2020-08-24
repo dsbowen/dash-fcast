@@ -247,7 +247,7 @@ class Moments(Smoother):
         scatter : go.Scatter
             Scatter plot of the probability density function.
         """
-        name = kwargs.get('name', self.id)
+        name = kwargs.pop('name', self.id)
         return go.Scatter(x=self.x, y=self.f_x, name=name, **kwargs)
 
     def cdf_plot(self, **kwargs):
@@ -262,5 +262,5 @@ class Moments(Smoother):
         scatter : go.Scatter
             Scatter plot of the cumulative distribution function.
         """
-        name = kwargs.get('name', self.id)
+        name = kwargs.pop('name', self.id)
         return go.Scatter(x=self.x, y=self.F_x, name=name, **kwargs)
