@@ -34,6 +34,10 @@ class Moments(Smoother):
         self.id = id
         self._elicitation_args = lb, ub, mean, std
 
+    @staticmethod
+    def get_id(id, type_='state'):
+        return {'dist-cls': 'moments', 'dist-id': id, 'type': type_}
+
     def to_plotly_json(self):
         return {
             'props': {'children': self.elicitation(*self._elicitation_args)},
@@ -185,6 +189,7 @@ class Moments(Smoother):
         state dictionary : str (JSON)
         """
         return json.dumps({
+            'cls': 'moments',
             'id': self.id,
             'x': list(self.x),
             '_f_x': list(self._f_x)

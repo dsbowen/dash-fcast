@@ -50,7 +50,6 @@ def create_app():
             dbc.CardBody(
                 fcast.Table(
                     id='Table', 
-                    bins=[(0, .25), (.25, .5), (.5, .75), (.75, 1)],
                     datatable={'row_deletable': True, 'editable': True},
                     row_addable=True
                 )
@@ -73,19 +72,19 @@ def create_app():
                 {'type': 'state', 'dist-cls': 'moments', 'dist-id': 'Forecast'}, 
                 'children'
             ),
-            # Input({'type': 'table-state', 'table-id': 'Table'}, 'children')
+            Input({'type': 'state', 'table-id': 'Table'}, 'children')
         ]
     )
-    def update_graphs(actual_state, fcast_state):#, table_state):
+    def update_graphs(actual_state, fcast_state, table_state):
         actual_dist = dist.Moments.load(actual_state)
         fcast_dist = dist.Moments.load(fcast_state)
-        # table = fcast.Table.load(table_state)
+        table = fcast.Table.load(table_state)
 
         pdf = go.Figure([
             actual_dist.pdf_plot(line={'color': ACTUAL_COLOR}),
             fcast_dist.pdf_plot(line={'color': FCAST_COLOR}),
-            # table.bar_plot('Actual', opacity=.4, marker_color=ACTUAL_COLOR),
-            # table.bar_plot('Forecast', opacity=.4, marker_color=FCAST_COLOR)
+            table.bar_plot('Actual', opacity=.4, marker_color=ACTUAL_COLOR),
+            table.bar_plot('Forecast', opacity=.4, marker_color=FCAST_COLOR)
         ])
         pdf.update_layout(
             transition_duration=500, 
