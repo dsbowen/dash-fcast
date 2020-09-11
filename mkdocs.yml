@@ -7,9 +7,9 @@ nav:
   - Home: index.md
   - Table: table.md
   - Distributions:
-    - Utilities: dist/utils.md
-    - Moments: dist/moments.md
-    - Table: dist/table.md
+    - Utilities: distributions/utils.md
+    - Moments: distributions/moments.md
+    - Table: distributions/table.md
 theme: readthedocs
 extra_css:
   - css/extra.css

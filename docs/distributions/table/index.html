@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<!--[if IE 8]><html class="no-js lt-ie9" lang="en" > <![endif]-->
+<!--[if gt IE 8]><!--> <html class="no-js" lang="en" > <!--<![endif]-->
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  
+  
+  
+  <link rel="shortcut icon" href="../../img/favicon.ico">
+  <title>Table - Dash Forecast</title>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Lato:400,700|Roboto+Slab:400,700|Inconsolata:400,700" />
+
+  <link rel="stylesheet" href="../../css/theme.css" />
+  <link rel="stylesheet" href="../../css/theme_extra.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/styles/github.min.css" />
+  <link href="../../css/extra.css" rel="stylesheet" />
+  
+  <script>
+    // Current page data
+    var mkdocs_page_name = "Table";
+    var mkdocs_page_input_path = "distributions\\table.md";
+    var mkdocs_page_url = null;
+  </script>
+  
+  <script src="../../js/jquery-2.1.1.min.js" defer></script>
+  <script src="../../js/modernizr-2.8.3.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/9.12.0/highlight.min.js"></script>
+  <script>hljs.initHighlightingOnLoad();</script> 
+  
+</head>
+
+<body class="wy-body-for-nav" role="document">
+
+  <div class="wy-grid-for-nav">
+
+    
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side stickynav">
+    <div class="wy-side-scroll">
+      <div class="wy-side-nav-search">
+        <a href="../.." class="icon icon-home"> Dash Forecast</a>
+        <div role="search">
+  <form id ="rtd-search-form" class="wy-form" action="../../search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" title="Type search term here" />
+  </form>
+</div>
+      </div>
+
+      <div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="main navigation">
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="../..">Home</a>
+                    </li>
+                </ul>
+                <ul>
+                    <li class="toctree-l1"><a class="reference internal" href="../../table/">Table</a>
+                    </li>
+                </ul>
+                <p class="caption"><span class="caption-text">Distributions</span></p>
+                <ul class="current">
+                    <li class="toctree-l1"><a class="reference internal" href="../utils/">Utilities</a>
+                    </li>
+                    <li class="toctree-l1"><a class="reference internal" href="../moments/">Moments</a>
+                    </li>
+                    <li class="toctree-l1 current"><a class="reference internal current" href="./">Table</a>
+    <ul class="current">
+    <li class="toctree-l2"><a class="reference internal" href="#examples">Examples</a>
+    </li>
+    <li class="toctree-l2"><a class="reference internal" href="#dash_fcastdistributionstable">dash_fcast.distributions.Table</a>
+        <ul>
+    <li class="toctree-l3"><a class="reference internal" href="#methods">Methods</a>
+    </li>
+        </ul>
+    </li>
+    </ul>
+                    </li>
+                </ul>
+      </div>
+    </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap">
+
+      
+      <nav class="wy-nav-top" role="navigation" aria-label="top navigation">
+        <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+        <a href="../..">Dash Forecast</a>
+      </nav>
+
+      
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="breadcrumbs navigation">
+  <ul class="wy-breadcrumbs">
+    <li><a href="../..">Docs</a> &raquo;</li>
+    
+      
+        
+          <li>Distributions &raquo;</li>
+        
+      
+    
+    <li>Table</li>
+    <li class="wy-breadcrumbs-aside">
+      
+        <a href="https://github.com/dsbowen/dash-fcast/edit/master/docs_md/distributions/table.md"
+          class="icon icon-github"> Edit on GitHub</a>
+      
+    </li>
+  </ul>
+  
+  <hr/>
+</div>
+          <div role="main">
+            <div class="section">
+              
+                <script src="https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML" type="text/javascript"></script>
+
+<p><link rel="stylesheet" href="https://assets.readthedocs.org/static/css/readthedocs-doc-embed.css" type="text/css" /></p>
+<style>
+    a.src-href {
+        float: right;
+    }
+    p.attr {
+        margin-top: 0.5em;
+        margin-left: 1em;
+    }
+    p.func-header {
+        background-color: gainsboro;
+        border-radius: 0.1em;
+        padding: 0.5em;
+        padding-left: 1em;
+    }
+    table.field-table {
+        border-radius: 0.1em
+    }
+</style>
+
+<h1 id="tabular-distribution">Tabular distribution</h1>
+<table class="docutils field-list field-table" frame="void" rules="none">
+    <col class="field-name" />
+    <col class="field-body" />
+    <tbody valign="top">
+
+    </tbody>
+</table>
+
+<h4 id="examples">Examples</h4>
+<p>In <code>app.py</code>:</p>
+<pre><code class="python">import dash_fcast.distributions as dist
+
+import dash
+import dash_bootstrap_components as dbc
+import dash_core_components as dcc
+import dash_html_components as html
+import plotly.graph_objects as go
+from dash.dependencies import Input, Output
+
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
+
+app.layout = html.Div([
+    html.Br(),
+    dist.Table(
+        id='Forecast',
+        datatable={'editable': True, 'row_deletable': True},
+        row_addable=True,
+        smoother=True
+    ),
+    html.Div(id='graphs')
+], className='container')
+
+dist.Table.register_callbacks(app)
+
+@app.callback(
+    Output('graphs', 'children'),
+    [Input(dist.Table.get_id('Forecast'), 'children')]
+)
+def update_graphs(dist_state):
+    distribution = dist.Table.load(dist_state)
+    pdf = go.Figure([distribution.pdf_plot(), distribution.bar_plot()])
+    pdf.update_layout(transition_duration=500, title='PDF')
+    cdf = go.Figure([distribution.cdf_plot()])
+    cdf.update_layout(transition_duration=500, title='CDF')
+    return [dcc.Graph(figure=pdf), dcc.Graph(figure=cdf)]
+
+if __name__ == '__main__':
+    app.run_server(debug=True)
+</code></pre>
+
+<p>Run the app with:</p>
+<pre><code class="bash">$ python app.py
+</code></pre>
+
+<p>Open your browser and navigate to <a href="http://localhost:8050/">http://localhost:8050/</a>.</p>
+<h2 id="dash_fcastdistributionstable">dash_fcast.distributions.<strong>Table</strong></h2>
+<p class="func-header">
+    <i>class</i> dash_fcast.distributions.<b>Table</b>(<i>id, bins=[0, 0.25, 0.5, 0.75, 1], pdf=[0.25, 0.25, 0.25, 0.25], datatable={}, row_addable=False, smoother=False, *args, **kwargs</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\table.py#L72">[source]</a>
+</p>
+
+<p>Tabular distribution elicitation. Subclasses <code>smoother.Smoother</code>.
+<a href="https://dsbowen.github.io/smoother/">https://dsbowen.github.io/smoother/</a>.</p>
+<table class="docutils field-list field-table" frame="void" rules="none">
+    <col class="field-name" />
+    <col class="field-body" />
+    <tbody valign="top">
+        <tr class="field">
+    <th class="field-name"><b>Parameters and attributes:</b></td>
+    <td class="field-body" width="100%"><b>id : <i>str, default</i></b>
+<p class="attr">
+    Distribution identifier.
+</p>
+<b>bins : <i>list of scalars, default=[0, .25, .5, .75, 1]</i></b>
+<p class="attr">
+    List of 'break points' for the bins. The first bin starts at <code>bins[0]</code>. The last bin ends at <code>bins[-1]</code>.
+</p>
+<b>pdf : <i>list of float, default=[.25, .25, .25, .25]</i></b>
+<p class="attr">
+    Probability density function. This is the amount of probability mass in each bin. Must sum to 1 and <code>len(pdf)</code> must be <code>len(bins)-1</code>.
+</p>
+<b>datatable : <i>dict, default={}</i></b>
+<p class="attr">
+    Keyword arguments for the datatable associated with the table distribution. See <a href="https://dash.plotly.com/datatable">https://dash.plotly.com/datatable</a>.
+</p>
+<b>row_addable : <i>bool, default=False</i></b>
+<p class="attr">
+    Indicates whether the forecaster can add rows.
+</p>
+<b>smoother : <i>bool, default=False</i></b>
+<p class="attr">
+    Indicates whether to use a smoother for interpolation.
+</p>
+<b>*args, **kwargs : <i></i></b>
+<p class="attr">
+    Arguments and keyword arguments passed to <code>super().__init__</code>.
+</p></td>
+</tr>
+    </tbody>
+</table>
+
+<h4 id="methods">Methods</h4>
+<p class="func-header">
+    <i></i> <b>get_id</b>(<i>id, type='state'</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\table.py#L115">[source]</a>
+</p>
+
+<table class="docutils field-list field-table" frame="void" rules="none">
+    <col class="field-name" />
+    <col class="field-body" />
+    <tbody valign="top">
+        <tr class="field">
+    <th class="field-name"><b>Parameters:</b></td>
+    <td class="field-body" width="100%"><b>id : <i>str</i></b>
+<p class="attr">
+
+</p>
+<b>type : <i>str, default='state'</i></b>
+<p class="attr">
+    Type of object associated with the moments distribution.
+</p></td>
+</tr>
+<tr class="field">
+    <th class="field-name"><b>Returns:</b></td>
+    <td class="field-body" width="100%"><b>id dictionary : <i>dict</i></b>
+<p class="attr">
+    Dictionary identifier.
+</p></td>
+</tr>
+    </tbody>
+</table>
+
+<p class="func-header">
+    <i></i> <b>elicitation</b>(<i>self, bins=[0, 0.25, 0.5, 0.75, 1], pdf=[0.25, 0.25, 0.25, 0.25], datatable={}, row_addable=False</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\table.py#L143">[source]</a>
+</p>
+
+<table class="docutils field-list field-table" frame="void" rules="none">
+    <col class="field-name" />
+    <col class="field-body" />
+    <tbody valign="top">
+        <tr class="field">
+    <th class="field-name"><b>Parameters:</b></td>
+    <td class="field-body" width="100%"><b>bins : <i>list of scalars or numpy.array, default=[0, .25, .5, .75, 1]</i></b>
+<p class="attr">
+
+</p>
+<b>pdf : <i>list of scalars or numpy.array, default=[.25, .25, .25, .25]</i></b>
+<p class="attr">
+
+</p>
+<b>datatable : <i>dict, default={}</i></b>
+<p class="attr">
+
+</p>
+<b>row_addable : <i>bool, default=False</i></b>
+<p class="attr">
+
+</p></td>
+</tr>
+<tr class="field">
+    <th class="field-name"><b>Returns:</b></td>
+    <td class="field-body" width="100%"><b>elicitation elements : <i>list of dash elements</i></b>
+<p class="attr">
+    Dash elements used to elicit the distribution.
+</p></td>
+</tr>
+    </tbody>
+</table>
+
+<p class="func-header">
+    <i></i> <b>get_columns</b>(<i>self</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\table.py#L186">[source]</a>
+</p>
+
+<table class="docutils field-list field-table" frame="void" rules="none">
+    <col class="field-name" />
+    <col class="field-body" />
+    <tbody valign="top">
+        <tr class="field">
+    <th class="field-name"><b>Returns:</b></td>
+    <td class="field-body" width="100%"><b>columns : <i>list of dict</i></b>
+<p class="attr">
+    List of dictionaries specifying the datatable columns. See <a href="https://dash.plotly.com/datatable">https://dash.plotly.com/datatable</a>,
+</p></td>
+</tr>
+    </tbody>
+</table>
+
+<p class="func-header">
+    <i></i> <b>get_data</b>(<i>self, bins=None, pdf=None</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\table.py#L220">[source]</a>
+</p>
+
+<table class="docutils field-list field-table" frame="void" rules="none">
+    <col class="field-name" />
+    <col class="field-body" />
+    <tbody valign="top">
+        <tr class="field">
+    <th class="field-name"><b>Parameters:</b></td>
+    <td class="field-body" width="100%"><b>bins : <i>list of float or numpy.array or None, default=None</i></b>
+<p class="attr">
+    If <code>None</code>, use <code>self.bins</code>.
+</p>
+<b>pdf : <i>list of float or numpy.array or None, default=None</i></b>
+<p class="attr">
+    If <code>None</code>, use <code>self.pdf</code>.
+</p></td>
+</tr>
+<tr class="field">
+    <th class="field-name"><b>Returns:</b></td>
+    <td class="field-body" width="100%"><b>records : <i>list of dict</i></b>
+<p class="attr">
+    Datatable data in records format.
+</p></td>
+</tr>
+    </tbody>
+</table>
+
+<p class="func-header">
+    <i></i> <b>register_callbacks</b>(<i>app</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\table.py#L251">[source]</a>
+</p>
+
+<p>Register dash callbacks for table distributions.</p>
+<table class="docutils field-list field-table" frame="void" rules="none">
+    <col class="field-name" />
+    <col class="field-body" />
+    <tbody valign="top">
+        <tr class="field">
+    <th class="field-name"><b>Parameters:</b></td>
+    <td class="field-body" width="100%"><b>app : <i>dash.Dash</i></b>
+<p class="attr">
+    App with which to register callbacks.
+</p></td>
+</tr>
+    </tbody>
+</table>
+
+<p class="func-header">
+    <i></i> <b>fit</b>(<i>self, bins=None, pdf=None, derivative=2</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\table.py#L286">[source]</a>
+</p>
+
+<p>Fit the smoother given masses constraints.</p>
+<table class="docutils field-list field-table" frame="void" rules="none">
+    <col class="field-name" />
+    <col class="field-body" />
+    <tbody valign="top">
+        <tr class="field">
+    <th class="field-name"><b>Parameters:</b></td>
+    <td class="field-body" width="100%"><b>bins : <i>list of float or numpy.array</i></b>
+<p class="attr">
+    Ordered list of bin break points. If <code>None</code>, use <code>self.bins</code>.
+</p>
+<b>pdf : <i>list of float or numpy.array</i></b>
+<p class="attr">
+    Probability density function. This is the amount of probability mass in each bin. Must sum to 1 and <code>len(pdf)</code> should be <code>len(bins)-1</code>. If <code>None</code>, use <code>self.pdf</code>.
+</p>
+<b>derivative : <i>int, default=2</i></b>
+<p class="attr">
+    Deriviate of the derivative smoothing function to maximize. e.g. <code>2</code> means the smoother will minimize the mean squaure second derivative.
+</p></td>
+</tr>
+<tr class="field">
+    <th class="field-name"><b>Returns:</b></td>
+    <td class="field-body" width="100%"><b>self : <i></i></b>
+<p class="attr">
+
+</p></td>
+</tr>
+    </tbody>
+</table>
+
+<p class="func-header">
+    <i></i> <b>dump</b>(<i>self</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\table.py#L319">[source]</a>
+</p>
+
+<p>Dump the table distribution state dictionary in JSON format.</p>
+<table class="docutils field-list field-table" frame="void" rules="none">
+    <col class="field-name" />
+    <col class="field-body" />
+    <tbody valign="top">
+        <tr class="field">
+    <th class="field-name"><b>Returns:</b></td>
+    <td class="field-body" width="100%"><b>state : <i>dict, JSON</i></b>
+<p class="attr">
+
+</p></td>
+</tr>
+    </tbody>
+</table>
+
+<p class="func-header">
+    <i></i> <b>load</b>(<i>cls, state_dict</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\table.py#L339">[source]</a>
+</p>
+
+<p>Load a table distribution from its state dictionary.</p>
+<table class="docutils field-list field-table" frame="void" rules="none">
+    <col class="field-name" />
+    <col class="field-body" />
+    <tbody valign="top">
+        <tr class="field">
+    <th class="field-name"><b>Parameters:</b></td>
+    <td class="field-body" width="100%"><b>state_dict : <i>dict</i></b>
+<p class="attr">
+    Output of <code>Table.dump</code>.
+</p></td>
+</tr>
+<tr class="field">
+    <th class="field-name"><b>Returns:</b></td>
+    <td class="field-body" width="100%"><b>table : <i><code>Table</code></i></b>
+<p class="attr">
+
+</p></td>
+</tr>
+    </tbody>
+</table>
+
+<p class="func-header">
+    <i></i> <b>pdf_plot</b>(<i>self, **kwargs</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\table.py#L430">[source]</a>
+</p>
+
+<table class="docutils field-list field-table" frame="void" rules="none">
+    <col class="field-name" />
+    <col class="field-body" />
+    <tbody valign="top">
+        <tr class="field">
+    <th class="field-name"><b>Parameters:</b></td>
+    <td class="field-body" width="100%"><b>**kwargs : <i></i></b>
+<p class="attr">
+    Keyword arguments for <code>go.Scatter</code>.
+</p></td>
+</tr>
+<tr class="field">
+    <th class="field-name"><b>Returns:</b></td>
+    <td class="field-body" width="100%"><b>scatter : <i>go.Scatter.</i></b>
+<p class="attr">
+    Scatter plot of the pdf.
+</p></td>
+</tr>
+    </tbody>
+</table>
+
+<p class="func-header">
+    <i></i> <b>cdf_plot</b>(<i>self, **kwargs</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\table.py#L455">[source]</a>
+</p>
+
+<table class="docutils field-list field-table" frame="void" rules="none">
+    <col class="field-name" />
+    <col class="field-body" />
+    <tbody valign="top">
+        <tr class="field">
+    <th class="field-name"><b>Parameters:</b></td>
+    <td class="field-body" width="100%"><b>**kwargs : <i></i></b>
+<p class="attr">
+    Keyword arguments for <code>go.Scatter</code>.
+</p></td>
+</tr>
+<tr class="field">
+    <th class="field-name"><b>Returns:</b></td>
+    <td class="field-body" width="100%"><b>scatter : <i>go.Scatter</i></b>
+<p class="attr">
+    Scatter plot of the cdf.
+</p></td>
+</tr>
+    </tbody>
+</table>
+
+<p class="func-header">
+    <i></i> <b>bar_plot</b>(<i>self, **kwargs</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\table.py#L473">[source]</a>
+</p>
+
+<table class="docutils field-list field-table" frame="void" rules="none">
+    <col class="field-name" />
+    <col class="field-body" />
+    <tbody valign="top">
+        <tr class="field">
+    <th class="field-name"><b>Parameters:</b></td>
+    <td class="field-body" width="100%"><b>**kwargs : <i></i></b>
+<p class="attr">
+    Keyword arguments for <code>go.Bar</code>.
+</p></td>
+</tr>
+<tr class="field">
+    <th class="field-name"><b>Returns:</b></td>
+    <td class="field-body" width="100%"><b>bar plot : <i>go.Bar</i></b>
+<p class="attr">
+    Bar plot of the pdf in the datatable.
+</p></td>
+</tr>
+    </tbody>
+</table>
+              
+            </div>
+          </div>
+          <footer>
+  
+    <div class="rst-footer-buttons" role="navigation" aria-label="footer navigation">
+      
+      
+        <a href="../moments/" class="btn btn-neutral" title="Moments"><span class="icon icon-circle-arrow-left"></span> Previous</a>
+      
+    </div>
+  
+
+  <hr/>
+
+  <div role="contentinfo">
+    <!-- Copyright etc -->
+    
+  </div>
+
+  Built with <a href="https://www.mkdocs.org/">MkDocs</a> using a <a href="https://github.com/snide/sphinx_rtd_theme">theme</a> provided by <a href="https://readthedocs.org">Read the Docs</a>.
+</footer>
+      
+        </div>
+      </div>
+
+    </section>
+
+  </div>
+
+  <div class="rst-versions" role="note" aria-label="versions">
+    <span class="rst-current-version" data-toggle="rst-current-version">
+      
+          <a href="https://github.com/dsbowen/dash-fcast/" class="fa fa-github" style="float: left; color: #fcfcfc"> GitHub</a>
+      
+      
+        <span><a href="../moments/" style="color: #fcfcfc;">&laquo; Previous</a></span>
+      
+      
+    </span>
+</div>
+    <script>var base_url = '../..';</script>
+    <script src="../../js/theme.js" defer></script>
+      <script src="../../search/main.js" defer></script>
+    <script defer>
+        window.onload = function () {
+            SphinxRtdTheme.Navigation.enable(true);
+        };
+    </script>
+
+</body>
+</html>

@@ -13,7 +13,7 @@ table_cls.rm_methods('to_plotly_json')
 compile_md(soup, compiler='sklearn', outfile='docs_md/table.md')
 
 dist_path = 'dash_fcast/distributions'
-outfile_path = 'docs_md/dist'
+outfile_path = 'docs_md/distributions'
 
 path = os.path.join(dist_path, '__init__.py')
 soup = PySoup(path=path, parser='sklearn', src_href=src_href)
