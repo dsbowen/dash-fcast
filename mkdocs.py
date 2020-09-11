@@ -7,6 +7,7 @@ src_href = Github('https://github.com/dsbowen/dash-fcast/blob/master')
 
 path = 'dash_fcast/table.py'
 soup = PySoup(path=path, parser='sklearn', src_href=src_href)
+soup.import_path = 'dash_fcast'
 table_cls = soup.objects[-1]
 table_cls.rm_methods('to_plotly_json')
 compile_md(soup, compiler='sklearn', outfile='docs_md/table.md')

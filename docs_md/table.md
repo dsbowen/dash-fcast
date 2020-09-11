@@ -31,10 +31,10 @@
 
 
 
-##dash_fcast.table.**Table**
+##dash_fcast.**Table**
 
 <p class="func-header">
-    <i>class</i> dash_fcast.table.<b>Table</b>(<i>id, bins=[0, 0.25, 0.5, 0.75, 1], datatable={}, row_addable=False</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/table.py#L21">[source]</a>
+    <i>class</i> dash_fcast.<b>Table</b>(<i>id, bins=[0, 0.25, 0.5, 0.75, 1], datatable={}, row_addable=False</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/table.py#L21">[source]</a>
 </p>
 
 
