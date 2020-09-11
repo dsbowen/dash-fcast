@@ -1,4 +1,58 @@
-"""# Distribution from tabular elicitation"""
+"""# Tabular distribution
+
+Examples
+--------
+In `app.py`:
+
+```python
+import dash_fcast.distributions as dist
+
+import dash
+import dash_bootstrap_components as dbc
+import dash_core_components as dcc
+import dash_html_components as html
+import plotly.graph_objects as go
+from dash.dependencies import Input, Output
+
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
+
+app.layout = html.Div([
+\    html.Br(),
+\    dist.Table(
+\        id='Forecast',
+\        datatable={'editable': True, 'row_deletable': True},
+\        row_addable=True,
+\        smoother=True
+\    ),
+\    html.Div(id='graphs')
+], className='container')
+
+dist.Table.register_callbacks(app)
+
+@app.callback(
+\    Output('graphs', 'children'),
+\    [Input(dist.Table.get_id('Forecast'), 'children')]
+)
+def update_graphs(dist_state):
+\    distribution = dist.Table.load(dist_state)
+\    pdf = go.Figure([distribution.pdf_plot(), distribution.bar_plot()])
+\    pdf.update_layout(transition_duration=500, title='PDF')
+\    cdf = go.Figure([distribution.cdf_plot()])
+\    cdf.update_layout(transition_duration=500, title='CDF')
+\    return [dcc.Graph(figure=pdf), dcc.Graph(figure=cdf)]
+
+if __name__ == '__main__':
+\    app.run_server(debug=True)
+```
+
+Run the app with:
+
+```bash
+$ python app.py
+```
+
+Open your browser and navigate to <http://localhost:8050/>.
+"""
 
 from ..utils import get_changed_cell, get_deleted_row, get_trigger_ids
 
@@ -14,22 +68,6 @@ from smoother import Smoother, DerivativeObjective, MassConstraint
 
 import json
 
-def get_id(type_, dist_id):
-    """
-    Parameters
-    ----------
-    type_ : str
-        Type of table element (e.g. 'state', 'data').
-
-    dist_id : str
-        id of the table distribution, usually the table id or MATCH.
-
-    Returns
-    -------
-    element id : dict
-    """
-    return {'type': type_, 'dist-cls': 'table', 'dist-id': dist_id}
-
 
 class Table(Smoother):
     """
@@ -38,16 +76,16 @@ class Table(Smoother):
 
     Parameters and attributes
     -------------------------
-    id : str or None, default=None
-        Unique id of the table distribution.
+    id : str, default
+        Distribution identifier.
 
-    bins : list of float, default=[0, .25, .5, .75, 1]
+    bins : list of scalars, default=[0, .25, .5, .75, 1]
         List of 'break points' for the bins. The first bin starts at 
         `bins[0]`. The last bin ends at `bins[-1]`.
 
     pdf : list of float, default=[.25, .25, .25, .25]
         Probability density function. This is the amount of probability mass
-        in each bin. Must sum to 1 and `len(pdf)` should be `len(bins)-1`.
+        in each bin. Must sum to 1 and `len(pdf)` must be `len(bins)-1`.
 
     datatable : dict, default={}
         Keyword arguments for the datatable associated with the table
@@ -57,20 +95,14 @@ class Table(Smoother):
         Indicates whether the forecaster can add rows.
 
     smoother : bool, default=False
-        Indicates whether to use a smoother for interpolation..
+        Indicates whether to use a smoother for interpolation.
 
     \*args, \*\*kwargs : 
         Arguments and keyword arguments passed to `super().__init__`.
     """
     def __init__(
-            self, 
-            id=None, 
-            bins=[0, .25, .5, .75, 1], 
-            pdf=[.25, .25, .25, .25], 
-            datatable={}, 
-            row_addable=False,
-            smoother=False,
-            *args, **kwargs
+            self, id, bins=[0, .25, .5, .75, 1], pdf=[.25, .25, .25, .25], 
+            datatable={}, row_addable=False, smoother=False, *args, **kwargs
         ):
         super().__init__(*args, **kwargs)
         self.id = id
@@ -79,6 +111,23 @@ class Table(Smoother):
         self.datatable = datatable
         self.row_addable = row_addable
         self.smoother = smoother
+
+    @staticmethod
+    def get_id(id, type='state'):
+        """
+        Parameters
+        ----------
+        id : str
+
+        type : str, default='state'
+            Type of object associated with the moments distribution.
+
+        Returns
+        -------
+        id dictionary : dict
+            Dictionary identifier.
+        """
+        return {'dist-cls': 'table', 'dist-id': id, 'type': type}
 
     def to_plotly_json(self):
         return {
@@ -91,13 +140,16 @@ class Table(Smoother):
             'namespace': 'dash_html_components'
         }
 
-    def elicitation(self, bins, pdf, datatable={}, row_addable=False):
+    def elicitation(
+            self, bins=[0, .25, .5, .75, 1], pdf=[.25, .25, .25, .25], 
+            datatable={}, row_addable=False
+        ):
         """
         Parameters
         ----------
-        bins : list of float or numpy.array
+        bins : list of scalars or numpy.array, default=[0, .25, .5, .75, 1]
 
-        pdf : list of float or numpy.array
+        pdf : list of scalars or numpy.array, default=[.25, .25, .25, .25]
 
         datatable : dict, default={}
 
@@ -109,13 +161,14 @@ class Table(Smoother):
             Dash elements used to elicit the distribution.
         """
         return [
+            # hidden state div
             html.Div(
                 self.dump(),
-                id=get_id('state', self.id),
+                id=Table.get_id(self.id, 'state'),
                 style={'display': 'none'}
             ),
             dash_table.DataTable(
-                id=get_id('table', self.id),
+                id=Table.get_id(self.id, 'table'),
                 columns=self.get_columns(),
                 data=self.get_data(bins, pdf),
                 **datatable
@@ -124,7 +177,7 @@ class Table(Smoother):
                 html.Br(),
                 dbc.Button(
                     'Add row',
-                    id=get_id('row-add', self.id),
+                    id=Table.get_id(self.id, 'row-add'),
                     color='primary',
                 )
             ], style={} if self.row_addable else {'display': 'none'})
@@ -195,6 +248,41 @@ class Table(Smoother):
             get_record(*args) for args in zip(bins[:-1], bins[1:], pdf, cdf)
         ]
 
+    @staticmethod
+    def register_callbacks(app):
+        """
+        Register dash callbacks for table distributions.
+
+        Parameters
+        ----------
+        app : dash.Dash
+            App with which to register callbacks.
+        """
+        @app.callback(
+            Output(Table.get_id(MATCH, 'state'), 'children'),
+            [
+                Input(Table.get_id(MATCH, 'table'), 'data_timestamp'),
+                Input(Table.get_id(MATCH, 'row-add'), 'n_clicks')
+            ],
+            [
+                State(Table.get_id(MATCH, 'state'), 'children'),
+                State(Table.get_id(MATCH, 'table'), 'data')
+            ]
+        )
+        def update_table_state(_, add_row, table_state, data):
+            trigger_ids = get_trigger_ids(dash.callback_context)
+            table = Table.load(table_state)
+            table._handle_data_updates(data, trigger_ids)
+            table._handle_row_add(add_row, trigger_ids)
+            return table.dump()
+
+        @app.callback(
+            Output(Table.get_id(MATCH, 'table'), 'data'),
+            [Input(Table.get_id(MATCH, 'state'), 'children')]
+        )
+        def update_table(table_state):
+            return Table.load(table_state).get_data()
+
     def fit(self, bins=None, pdf=None, derivative=2):
         """
         Fit the smoother given masses constraints.
@@ -202,11 +290,12 @@ class Table(Smoother):
         Parameters
         ----------
         bins : list of float or numpy.array
-            Ordered list of bin break points.
+            Ordered list of bin break points. If `None`, use `self.bins`.
 
         pdf : list of float or numpy.array
             Probability density function. This is the amount of probability mass
             in each bin. Must sum to 1 and `len(pdf)` should be `len(bins)-1`.
+            If `None`, use `self.pdf`.
 
         derivative : int, default=2
             Deriviate of the derivative smoothing function to maximize. e.g. 
@@ -226,37 +315,6 @@ class Table(Smoother):
             [MassConstraint(lb, ub, mass) for lb, ub, mass in params],
             DerivativeObjective(derivative)
         )
-
-    @staticmethod
-    def register_callbacks(app):
-        """
-        Register callbacks for the table distribution. Only register callbacks
-        for the table distribution once per app.
-        """
-        @app.callback(
-            Output(get_id('state', MATCH), 'children'),
-            [
-                Input(get_id('table', MATCH), 'data_timestamp'),
-                Input(get_id('row-add', MATCH), 'n_clicks')
-            ],
-            [
-                State(get_id('state', MATCH), 'children'),
-                State(get_id('table', MATCH), 'data')
-            ]
-        )
-        def update_table_state(_, add_row, table_state, data):
-            trigger_ids = get_trigger_ids(dash.callback_context)
-            table = Table.load(table_state)
-            table._handle_data_updates(data, trigger_ids)
-            table._handle_row_add(add_row, trigger_ids)
-            return table.dump()
-
-        @app.callback(
-            Output(get_id('table', MATCH), 'data'),
-            [Input(get_id('state', MATCH), 'children')]
-        )
-        def update_table(table_state):
-            return Table.load(table_state).get_data()
 
     def dump(self):
         """
@@ -346,7 +404,7 @@ class Table(Smoother):
                 else bin_start + bin_end[-1:]
             )
 
-        if get_id('table', self.id) not in trigger_ids:
+        if Table.get_id(self.id, 'table') not in trigger_ids:
             return
         prev_data = self.get_data()
         if len(data) < len(prev_data):
@@ -365,7 +423,7 @@ class Table(Smoother):
         Helper method for callback updating table state which handles adding
         rows.
         """
-        if add_row and get_id('row-add', self.id) in trigger_ids:
+        if add_row and Table.get_id(self.id, 'row-add') in trigger_ids:
             self.bins.append(self.bins[-1])
             self.pdf.append(0)
 

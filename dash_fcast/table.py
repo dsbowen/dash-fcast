@@ -3,8 +3,6 @@
 from .distributions import load_distributions
 from .utils import get_changed_cell, get_deleted_row, get_trigger_ids, get_dist_trigger_ids, match_record, update_records
 
-"""# Table """
-
 import dash
 import dash_bootstrap_components as dbc
 import dash_core_components as dcc
@@ -79,12 +77,7 @@ class Table():
                         id=Table.get_id(self.id, 'state'), 
                         style={'display': 'none'}
                     ),
-                    dash_table.DataTable(
-                        id=Table.get_id(self.id, 'table'),
-                        columns=self.get_columns(),
-                        data=self._data,
-                        **self.datatable
-                    ),
+                    self.get_table(**self.datatable),
                     html.Div([
                         html.Br(),
                         dbc.Button(
@@ -98,6 +91,24 @@ class Table():
             'type': 'Div',
             'namespace': 'dash_html_components'
         }
+
+    def get_table(self, **kwargs):
+        """
+        Parameters
+        ----------
+        \*\*kwargs :
+            Keyword arguments for `dash_table.DataTable`.
+
+        Returns
+        -------
+        data table : dash_table.DataTable
+        """
+        return dash_table.DataTable(
+            id=Table.get_id(self.id, 'table'),
+            columns=self.get_columns(),
+            data=self._data,
+            **kwargs
+        )
 
     def get_columns(self):
         """
@@ -154,7 +165,7 @@ class Table():
             List of distributions like those specified in 
             `dash_fcast.distributions`.
 
-        data : list of dicts
+        data : list of dicts, default=[]
             Existing data in records format. If a bin matches existing data,
             that record is returned without updating the distribution pdfs.
 
@@ -184,7 +195,7 @@ class Table():
     @staticmethod
     def register_callbacks(app):
         """
-        Register dash callbacks for table objects.
+        Register dash callbacks for table display.
 
         Parameters
         ----------
@@ -212,7 +223,7 @@ class Table():
             if table._first_callback:
                 table._handle_first_callback(dist_states)
             else:
-                table._handle_data_updates(dist_states, data, trigger_ids)
+                table._handle_bin_updates(dist_states, data, trigger_ids)
                 table._handle_row_add(add_row, dist_states, trigger_ids)
                 table._handle_dist_updates(dist_states)
             return table.dump()
@@ -271,14 +282,21 @@ class Table():
         return table
 
     def _handle_first_callback(self, dist_states):
+        """
+        Handle the first callback to initialize the table.
+        """
         distributions = load_distributions(dist_states)
         self._dist_ids = [dist.id for dist in distributions]
         self._data = self.get_data(distributions=distributions)
         self._first_callback = False
         return self
 
-    def _handle_data_updates(self, dist_states, data, trigger_ids):
-        def handle_bin_update(end_updated=True):
+    def _handle_bin_updates(self, dist_states, data, trigger_ids):
+        """
+        Handle updates to the bin start or end. Ensures that bins are
+        contiguous.
+        """
+        def handle_bin_updates(end_updated=True):
             bin_start = [d['bin-start'] for d in data]
             bin_end = [d['bin-end'] for d in data]
             self.bins = (
@@ -295,14 +313,17 @@ class Table():
             return
         if len(data) < len(self._data):
             # row was deleted
-            handle_bin_update()
+            handle_bin_updates()
         else:
             # bin changed
             _, changed_col = get_changed_cell(data, self._data)
-            handle_bin_update(end_updated=changed_col=='bin-end')
+            handle_bin_updates(end_updated=changed_col=='bin-end')
         return self
 
     def _handle_row_add(self, add_row, dist_states, trigger_ids):
+        """
+        Handle adding a row to the table.
+        """
         if add_row and Table.get_id(self.id, 'row-add') in trigger_ids:
             self.bins.append(self.bins[-1])
             self._data = self.get_data(
@@ -312,10 +333,8 @@ class Table():
 
     def _handle_dist_updates(self, dist_states):
         """
-        Handles an update to the table state triggered by a change to a 
-        smoother state. If this is the first callback updating the table 
-        state, update the data for the entire table. Otherwise, find the 
-        smoother which triggered the callback and update only those records.
+        Handle updates to the distribution states. Update the table data for
+        only the distributions whose state change triggered the callback.
         """
         self._dist_ids = [
             json.loads(state)['id'] for state in dist_states

@@ -1,0 +1,15 @@
+site_name: Dash Forecast
+docs_dir: docs_md
+site_dir: docs
+repo_url: https://github.com/dsbowen/dash-fcast
+edit_uri: edit/master/docs_md
+nav:
+  - Home: index.md
+  - Table: table.md
+  - Distributions:
+    - Utilities: dist/utils.md
+    - Moments: dist/moments.md
+    - Table: dist/table.md
+theme: readthedocs
+extra_css:
+  - css/extra.css

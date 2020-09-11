@@ -1,4 +1,65 @@
-"""# Moments"""
+"""# Moments distribution
+
+Examples
+--------
+In `app.py`:
+
+```python
+import dash_fcast as fcast
+import dash_fcast.distributions as dist
+
+import dash
+import dash_bootstrap_components as dbc
+import dash_core_components as dcc
+import dash_html_components as html
+import plotly.graph_objects as go
+from dash.dependencies import Input, Output
+
+app = dash.Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
+
+app.layout = html.Div([
+\    html.Br(),
+\    dist.Moments(id='Forecast'),
+\    html.Br(),
+\    fcast.Table(
+\        id='Table', 
+\        datatable={'editable': True, 'row_deletable': True},
+\        row_addable=True
+\    ),
+\    html.Div(id='graphs')
+], className='container')
+
+dist.Moments.register_callbacks(app)
+fcast.Table.register_callbacks(app)
+
+@app.callback(
+\    Output('graphs', 'children'),
+\    [
+\        Input(dist.Moments.get_id('Forecast'), 'children'),
+\        Input(fcast.Table.get_id('Table'), 'children')
+\    ]
+)
+def update_graphs(dist_state, table_state):
+\    distribution = dist.Moments.load(dist_state)
+\    table = fcast.Table.load(table_state)
+\    pdf = go.Figure([distribution.pdf_plot(), table.bar_plot('Forecast')])
+\    pdf.update_layout(transition_duration=500, title='PDF')
+\    cdf = go.Figure([distribution.cdf_plot()])
+\    cdf.update_layout(transition_duration=500, title='CDF')
+\    return [dcc.Graph(figure=pdf), dcc.Graph(figure=cdf)]
+
+if __name__ == '__main__':
+\    app.run_server(debug=True)
+```
+
+Run the app with:
+
+```bash
+$ python app.py
+```
+
+Open your browser and navigate to <http://localhost:8050/>.
+"""
 
 import dash_bootstrap_components as dbc
 import dash_html_components as html
@@ -9,62 +70,87 @@ from smoother import Smoother, MomentConstraint
 
 import json
 
-def get_id(type_, dist_id):
-    return {'type': type_, 'dist-cls': 'moments', 'dist-id': dist_id}
-
 
 class Moments(Smoother):
     """
     Distribution generated from moments elicitation. Inherits from 
-    `smoother.Smoother`.
+    `smoother.Smoother`. See <https://dsbowen.github.io/smoother/>.
 
     Parameters
     ----------
-    name : str
-        The smoother's name is the `id` of its hidden state `div`, the 
-        default label for plots it generates, and the default column name for 
-        tables to which it belongs.
+    id : str
+        Distribution identifier.
+
+    lb : scalar, default=0
+        Lower bound of the distribution. *F(x)=0* for all *x<lb*.
+
+    ub : scalar, default=1
+        Upper bound of the distribution. *F(x)=1* for all *x>ub*.
+
+    mean : scalar or None, default=None
+        Mean of the distribution. If `None`, the mean is inferred as halfway
+        between the lower and upper bound.
+
+    std : scalar or None, default=None
+        Standard deviation of the distribution. If `None`, the standard 
+        deviation is inferred as the standard deviation which maximizes
+        entropy.
 
     \*args, \*\*kwargs : 
         Arguments and keyword arguments are passed to the smoother 
         constructor.
+
+    Attributes
+    ----------
+    id : str
+        Set from the `id` parameter.
     """
-    def __init__(self, id=None, lb=0, ub=1, mean=None, std=None, *args, **kwargs):
+    def __init__(self, id, lb=0, ub=1, mean=None, std=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.id = id
         self._elicitation_args = lb, ub, mean, std
 
     @staticmethod
-    def get_id(id, type_='state'):
-        return {'dist-cls': 'moments', 'dist-id': id, 'type': type_}
+    def get_id(id, type='state'):
+        """
+        Parameters
+        ----------
+        id : str
+
+        type : str, default='state'
+            Type of object associated with the moments distribution.
+
+        Returns
+        -------
+        id dictionary : dict
+            Dictionary identifier.
+        """
+        return {'dist-cls': 'moments', 'dist-id': id, 'type': type}
 
     def to_plotly_json(self):
         return {
-            'props': {'children': self.elicitation(*self._elicitation_args)},
+                'props': {'children': self.elicitation(
+                    *self._elicitation_args
+                )
+            },
             'type': 'Div',
             'namespace': 'dash_html_components'
         }
 
     def elicitation(self, lb=0, ub=1, mean=None, std=None):
         """
-        Creates the layout for eliciting bounds and moments.
+        Creates the layout for eliciting bounds and moments. Parameters for 
+        this method are analogous to the constructor parameters.
 
         Parameters
         ----------
-        app : dash.Dash
-            Application with which the elicitation is associated.
+        lb : float, default=0
 
-        lb : float, default=-3
-            Default lower bound.
-
-        ub : float, default=3
-            Default upper bound.
+        ub : float, default=1
 
         mean : float or None, default=None
-            Default mean.
 
         std : float or None, default=None
-            Default standard deviation.
 
         decimals : int, default=2
             Number of decimals to which the recommended maximum standard 
@@ -75,8 +161,8 @@ class Moments(Smoother):
         layout : list of dash elements.
             Elicitation layout.
         """
-        def gen_formgroup(label, type_, value):
-            id = get_id(type_, self.id)
+        def gen_formgroup(label, type, value):
+            id = Moments.get_id(self.id, type)
             formgroup = dbc.FormGroup([
                 dbc.Label(label, html_for=id, width=6),
                 dbc.Col([
@@ -91,9 +177,10 @@ class Moments(Smoother):
             return formgroup
 
         return [
+            # hidden state div
             html.Div(
                 self.dump(), 
-                id=get_id('state', self.id), 
+                id=Moments.get_id(self.id, 'state'), 
                 style={'display': 'none'}
             ),
             gen_formgroup('Lower bound', 'lb', lb),
@@ -101,47 +188,66 @@ class Moments(Smoother):
             gen_formgroup('Mean', 'mean', mean),
             gen_formgroup('Standard deviation', 'std', std),
             dbc.Button(
-                'Update', id=get_id('update', self.id), color='primary'
+                'Update', 
+                id=Moments.get_id(self.id, 'update'), 
+                color='primary'
             )
         ]
 
     @staticmethod
     def register_callbacks(app, decimals=2):
+        """
+        Register dash callbacks for moments distributions.
+
+        Parameters
+        ----------
+        app : dash.Dash
+            App with which to register callbacks.
+
+        decimals : int, default=2
+            Number of decimals to which to round the standard deviation
+            placeholder.
+        """
         @app.callback(
-            Output(get_id('mean', MATCH), 'placeholder'),
-            [Input(get_id(type_, MATCH), 'value') for type_ in ('lb', 'ub')],
-            [State(get_id('mean', MATCH), 'placeholder')]
+            Output(Moments.get_id(MATCH, 'mean'), 'placeholder'),
+            [
+                Input(Moments.get_id(MATCH, type), 'value') 
+                for type in ('lb', 'ub')
+            ],
+            [State(Moments.get_id(MATCH, 'mean'), 'placeholder')]
         )
         def update_mean_placeholder(lb, ub, curr_mean):
+            # mean placeholder is midway between lower and upper bound
             try:
                 return round((lb + ub)/2., decimals)
             except:
                 return curr_mean
 
         @app.callback(
-            Output(get_id('std', MATCH), 'placeholder'),
+            Output(Moments.get_id(MATCH, 'std'), 'placeholder'),
             [
-                Input(get_id(type_, MATCH), 'value') 
-                for type_ in ('lb', 'ub', 'mean')
+                Input(Moments.get_id(MATCH, type), 'value') 
+                for type in ('lb', 'ub', 'mean')
             ],
-            [State(get_id('std', MATCH), 'placeholder')]
+            [State(Moments.get_id(MATCH, 'std'), 'placeholder')]
         )
         def update_std_placeholder(lb, ub, mean, curr_placeholder):
+            # std placeholder maximizes entropy
             try:
-                return round(Moments().fit(lb, ub, mean).std(), decimals)
+                return round(Moments('tmp').fit(lb, ub, mean).std(), decimals)
             except:
                 return curr_placeholder
 
         @app.callback(
-            Output(get_id('state', MATCH), 'children'),
-            [Input(get_id('update', MATCH), 'n_clicks')],
+            Output(Moments.get_id(MATCH, 'state'), 'children'),
+            [Input(Moments.get_id(MATCH, 'update'), 'n_clicks')],
             [
-                State(get_id('state', MATCH), 'id'),
-                State(get_id('state', MATCH), 'children'),
-                State(get_id('lb', MATCH), 'value'),
-                State(get_id('ub', MATCH), 'value'),
-                State(get_id('mean', MATCH), 'value'),
-                State(get_id('std', MATCH), 'value')
+                State(Moments.get_id(MATCH, 'state'), 'id'),
+                State(Moments.get_id(MATCH, 'state'), 'children'),
+                State(Moments.get_id(MATCH, 'lb'), 'value'),
+                State(Moments.get_id(MATCH, 'ub'), 'value'),
+                State(Moments.get_id(MATCH, 'mean'), 'value'),
+                State(Moments.get_id(MATCH, 'std'), 'value')
             ]
         )
         def update_forecast(_, id, children, lb, ub, mean, std):
@@ -150,25 +256,20 @@ class Moments(Smoother):
             except:
                 return children
 
-    def fit(self, lb, ub, mean=None, std=None):
+    def fit(self, lb=0, ub=1, mean=None, std=None):
         """
-        Fit the smoother given bounds and moments constraints.
+        Fit the smoother given bounds and moments constraints. Parameters are
+        analogous to those of the constructor.
 
         Parameters
         ----------
-        lb : float
-            Lower bound of the distribution.
+        lb : scalar, default=0
 
-        ub : float
-            Upper bound of the distribution.
+        ub : scalar, default=1
 
         mean : float or None, default=None
-            Mean of the distribution. If `None`, the mean constraint is 
-            omitted.
 
         std : float or None, default=None
-            Standard deviation of the distribution. If `None`, the standard 
-            deviation constraint is omitted.
 
         Returns
         -------
