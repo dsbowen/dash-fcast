@@ -1,5 +1,18 @@
 """# Moments distribution
 
+This elicitation method asks forecasters to input the 'bounds and moments' of
+the distribution. (Specifically, the moments are the mean and standard 
+deviation). It then fits a distribution based on these inputs:
+
+1. Lower bound and upper bound => uniform
+2. Lower bound and mean or standard deviation => exponential
+3. Upper bound and mean or standard deviation => 'reflected' exponential
+4. Mean and standard deviation => Gaussian
+5. Lower bound, mean, and standard deviation => gamma
+6. Upper bound, mean, and standard deviation => 'reflected' gamma
+7. Lower bound, upper bound, mean, and standard deviation => non-parametric 
+maximum entropy distribution
+
 Examples
 --------
 In `app.py`:
@@ -61,17 +74,20 @@ $ python app.py
 Open your browser and navigate to <http://localhost:8050/>.
 """
 
+from .utils import rexpon, rgamma
+
 import dash_bootstrap_components as dbc
 import dash_html_components as html
 import numpy as np
 import plotly.graph_objects as go
 from dash.dependencies import MATCH, Input, Output, State
+from scipy.stats import expon, gamma, norm, uniform
 from smoother import Smoother, MomentConstraint
 
 import json
 
 
-class Moments(Smoother):
+class Moments():
     """
     Distribution generated from moments elicitation. Inherits from 
     `smoother.Smoother`. See <https://dsbowen.github.io/smoother/>.
@@ -108,7 +124,8 @@ class Moments(Smoother):
     def __init__(self, id, lb=0, ub=1, mean=None, std=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.id = id
-        self._elicitation_args = lb, ub, mean, std
+        self._dist, self._dist_type = None, None
+        self._fit_args = lb, ub, mean, std
 
     @staticmethod
     def get_id(id, type='state'):
@@ -129,9 +146,7 @@ class Moments(Smoother):
 
     def to_plotly_json(self):
         return {
-                'props': {'children': self.elicitation(
-                    *self._elicitation_args
-                )
+                'props': {'children': self.elicitation(*self._fit_args)
             },
             'type': 'Div',
             'namespace': 'dash_html_components'
@@ -144,13 +159,13 @@ class Moments(Smoother):
 
         Parameters
         ----------
-        lb : float, default=0
+        lb : scalar, default=0
 
-        ub : float, default=1
+        ub : scalar, default=1
 
-        mean : float or None, default=None
+        mean : scalar or None, default=None
 
-        std : float or None, default=None
+        std : scalar or None, default=None
 
         decimals : int, default=2
             Number of decimals to which the recommended maximum standard 
@@ -212,31 +227,41 @@ class Moments(Smoother):
             Output(Moments.get_id(MATCH, 'mean'), 'placeholder'),
             [
                 Input(Moments.get_id(MATCH, type), 'value') 
-                for type in ('lb', 'ub')
-            ],
-            [State(Moments.get_id(MATCH, 'mean'), 'placeholder')]
+                for type in ('lb', 'ub', 'std')
+            ]
         )
-        def update_mean_placeholder(lb, ub, curr_mean):
-            # mean placeholder is midway between lower and upper bound
-            try:
-                return round((lb + ub)/2., decimals)
-            except:
-                return curr_mean
+        def update_mean_placeholder(lb, ub, std):
+            dist_type = Moments._get_dist_type(lb, ub, std=std)
+            if dist_type is None:
+                return None
+            if dist_type in ('uniform', 'max-entropy'):
+                mean = (lb + ub)/2.
+            elif dist_type == 'expon':
+                mean = lb + std
+            elif dist_type == 'rexpon':
+                mean = ub - std
+            return round(mean, decimals)
 
         @app.callback(
             Output(Moments.get_id(MATCH, 'std'), 'placeholder'),
             [
                 Input(Moments.get_id(MATCH, type), 'value') 
                 for type in ('lb', 'ub', 'mean')
-            ],
-            [State(Moments.get_id(MATCH, 'std'), 'placeholder')]
+            ]
         )
-        def update_std_placeholder(lb, ub, mean, curr_placeholder):
-            # std placeholder maximizes entropy
-            try:
-                return round(Moments('tmp').fit(lb, ub, mean).std(), decimals)
-            except:
-                return curr_placeholder
+        def update_std_placeholder(lb, ub, mean):
+            dist_type = Moments._get_dist_type(lb, ub, mean)
+            if dist_type is None:
+                return
+            if dist_type == 'uniform':
+                std = (1/12. * (ub-lb)**2)**.5
+            elif dist_type == 'expon':
+                std = mean - lb
+            elif dist_type == 'rexpon':
+                std = ub - mean
+            elif dist_type == 'max-entropy':
+                std = Moments('tmp').fit(lb, ub, mean).std()
+            return round(std, decimals)
 
         @app.callback(
             Output(Moments.get_id(MATCH, 'state'), 'children'),
@@ -256,32 +281,79 @@ class Moments(Smoother):
             except:
                 return children
 
-    def fit(self, lb=0, ub=1, mean=None, std=None):
+    def fit(self, lb=None, ub=None, mean=None, std=None):
         """
         Fit the smoother given bounds and moments constraints. Parameters are
         analogous to those of the constructor.
 
         Parameters
         ----------
-        lb : scalar, default=0
+        lb : scalar or None, default=None
 
-        ub : scalar, default=1
+        ub : scalar or None, default=None
 
-        mean : float or None, default=None
+        mean : scalar or None, default=None
 
-        std : float or None, default=None
+        std : scalar or None, default=None
 
         Returns
         -------
-        self : dash_fcast.MomentSmoother
+        self : dash_fcast.distributions.Moments
         """
-        mean = (lb + ub)/2. if mean is None else mean
-        constraints = [MomentConstraint(mean, degree=1)]
-        if std is not None:
-            constraints.append(
-                MomentConstraint(std, degree=2, type_='central', norm=True)
-            )
-        return super().fit(lb, ub, constraints)
+        dist_type = self._get_dist_type(lb, ub, mean, std)
+        self._dist_type = dist_type
+        self._fit_args = lb, ub, mean, std
+        if dist_type == 'uniform':
+            self._dist = uniform(lb, ub)
+        elif dist_type == 'expon':
+            self._dist = expon(lb, mean-lb if std is None else std)
+        elif dist_type == 'rexpon':
+            self._dist = rexpon(ub, ub-mean if std is None else std)
+        elif dist_type == 'norm':
+            self._dist = norm(mean, std)
+        # elif dist_type == 'gamma':
+        #     self._dist = gamma(((mean-lb) / std)**2, lb, std**2)
+        # elif dist_type == 'rgamma':
+        #     self._dist = rgamma(((ub-mean) / std)**2, ub, std**2)
+        elif dist_type == 'max-entropy':
+            lb = mean - 3*std if lb is None else lb
+            ub = mean + 3*std if ub is None else ub
+            mean = (lb + ub)/2. if mean is None else mean
+            constraints = [MomentConstraint(mean, degree=1)]
+            if std is not None:
+                constraints.append(MomentConstraint(
+                    std, degree=2, type_='central', norm=True
+                )) 
+            self._dist = Smoother().fit(lb, ub, constraints=constraints)
+        return self
+
+    @staticmethod
+    def _get_dist_type(lb=None, ub=None, mean=None, std=None):
+        None_count = [lb, ub, mean, std].count(None)
+        if None_count >= 3:
+            return
+        if None_count == 2:
+            if mean is None and std is None:
+                return 'uniform'
+            if lb is not None and ub is None:
+                # exponential
+                return 'expon'
+            if lb is None and ub is not None:
+                # reflected exponential
+                return 'rexpon'
+            if lb is None and ub is None:
+                # normal
+                return 'norm'
+        if None_count == 1:
+            if ub is None:
+                return 'max-entropy'
+                # return 'gamma'
+            if lb is None:
+                return 'max-entropy'
+                # return 'rgamma'
+        # non-parametric maximum entropy distribution
+        # approximated by smoother
+        return 'max-entropy'
 
     def dump(self):
         """
@@ -289,12 +361,17 @@ class Moments(Smoother):
         -------
         state dictionary : str (JSON)
         """
-        return json.dumps({
+        state = {
             'cls': 'moments',
             'id': self.id,
-            'x': list(self.x),
-            '_f_x': list(self._f_x)
-        })
+            '_dist_type': self._dist_type,
+            '_fit_args': self._fit_args
+        }
+        if self._dist_type == 'max-entropy':
+            state.update({
+                'x': list(self._dist.x), '_f_x': list(self._dist._f_x)
+            })
+        return json.dumps(state)
 
     @classmethod
     def load(cls, state_dict):
@@ -302,18 +379,39 @@ class Moments(Smoother):
         Parameters
         ----------
         state_dict : str (JSON)
-            Smoother state dictionary (output of `Smoother.dump`).
+            Moments distribution state dictionary (output of `Moments.dump`).
 
         Returns
         -------
-        smoother : dash_fcast.Smoother
-            Smoother specified by the state dictionary.
+        distribution : dash_fcast.distributions.Moments
+            Moments distribution specified by the state dictionary.
         """
         state_dict = json.loads(state_dict)
         dist = cls(id=state_dict['id'])
-        dist.x = np.array(state_dict['x'])
-        dist._f_x = np.array(state_dict['_f_x'])
+        dist._dist_type = state_dict['_dist_type']
+        if dist._dist_type == 'max-entropy':
+            dist._fit_args = state_dict['_fit_args']
+            dist._dist = Smoother()
+            dist._dist.x = np.array(state_dict['x'])
+            dist._dist._f_x = np.array(state_dict['_f_x'])
+        else:
+            dist.fit(*state_dict['_fit_args'])
         return dist
+
+    def mean(self):
+        return self._dist.mean()
+
+    def std(self):
+        return self._dist.std()
+
+    def pdf(self, x):
+        return self._dist.pdf(x)
+
+    def cdf(self, x):
+        return self._dist.cdf(x)
+
+    def ppf(self, q):
+        return self._dist.ppf(q)
 
     def pdf_plot(self, **kwargs):
         """
@@ -328,7 +426,15 @@ class Moments(Smoother):
             Scatter plot of the probability density function.
         """
         name = kwargs.pop('name', self.id)
-        return go.Scatter(x=self.x, y=self.f_x, name=name, **kwargs)
+        if self._dist_type != 'max-entropy':
+            lb, ub = self._dist.ppf(0), self._dist.ppf(1)
+            lb = self._dist.ppf(.01) if lb == -np.inf else lb
+            ub = self._dist.ppf(.99) if ub == np.inf else ub
+            x = np.linspace(lb, ub)
+            y = self._dist.pdf(x)
+        elif self._dist_type == 'max-entropy':
+            x, y = self._dist.x, self._dist.f_x
+        return go.Scatter(x=x, y=y, name=name, **kwargs)
 
     def cdf_plot(self, **kwargs):
         """
@@ -343,4 +449,12 @@ class Moments(Smoother):
             Scatter plot of the cumulative distribution function.
         """
         name = kwargs.pop('name', self.id)
-        return go.Scatter(x=self.x, y=self.F_x, name=name, **kwargs)
+        if self._dist_type != 'max-entropy':
+            lb, ub = self._dist.ppf(0), self._dist.ppf(1)
+            lb = self._dist.ppf(.01) if lb == -np.inf else lb
+            ub = self._dist.ppf(.99) if ub == np.inf else ub
+            x = np.linspace(lb, ub)
+            y = self._dist.cdf(x)
+        else:
+            x, y = self._dist.x, self._dist.F_x
+        return go.Scatter(x=x, y=y, name=name, **kwargs)
