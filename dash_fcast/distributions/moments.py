@@ -8,10 +8,8 @@ deviation). It then fits a distribution based on these inputs:
 2. Lower bound and mean or standard deviation => exponential
 3. Upper bound and mean or standard deviation => 'reflected' exponential
 4. Mean and standard deviation => Gaussian
-5. Lower bound, mean, and standard deviation => gamma
-6. Upper bound, mean, and standard deviation => 'reflected' gamma
-7. Lower bound, upper bound, mean, and standard deviation => non-parametric 
-maximum entropy distribution
+5. Otherwise => non-parametric maximum entropy distribution. See
+<https://dsbowen.github.io/smoother/>.
 
 Examples
 --------
@@ -89,19 +87,20 @@ import json
 
 class Moments():
     """
-    Distribution generated from moments elicitation. Inherits from 
-    `smoother.Smoother`. See <https://dsbowen.github.io/smoother/>.
+    Distribution generated from moments elicitation.
 
     Parameters
     ----------
     id : str
         Distribution identifier.
 
-    lb : scalar, default=0
-        Lower bound of the distribution. *F(x)=0* for all *x<lb*.
+    lb : scalar or None, default=0
+        Lower bound of the distribution. *F(x)=0* for all *x<lb*. If `None`,
+        the distribution has no lower bound.
 
-    ub : scalar, default=1
-        Upper bound of the distribution. *F(x)=1* for all *x>ub*.
+    ub : scalar or None, default=1
+        Upper bound of the distribution. *F(x)=1* for all *x>ub*. If `None`,
+        the distribution has no upper bound.
 
     mean : scalar or None, default=None
         Mean of the distribution. If `None`, the mean is inferred as halfway
@@ -176,14 +175,15 @@ class Moments():
         layout : list of dash elements.
             Elicitation layout.
         """
-        def gen_formgroup(label, type, value):
+        def gen_formgroup(label, type, value, placeholder=None):
             id = Moments.get_id(self.id, type)
             formgroup = dbc.FormGroup([
                 dbc.Label(label, html_for=id, width=6),
                 dbc.Col([
                     dbc.Input(
                         id=id, 
-                        value=value, 
+                        value=value,
+                        placeholder=placeholder,
                         type='number', 
                         style={'text-align': 'right'}
                     ),
@@ -198,8 +198,8 @@ class Moments():
                 id=Moments.get_id(self.id, 'state'), 
                 style={'display': 'none'}
             ),
-            gen_formgroup('Lower bound', 'lb', lb),
-            gen_formgroup('Upper bound', 'ub', ub),
+            gen_formgroup('Lower bound', 'lb', lb, '-∞'),
+            gen_formgroup('Upper bound', 'ub', ub, '∞'),
             gen_formgroup('Mean', 'mean', mean),
             gen_formgroup('Standard deviation', 'std', std),
             dbc.Button(
@@ -300,6 +300,24 @@ class Moments():
         -------
         self : dash_fcast.distributions.Moments
         """
+        def fit_max_entropy(lb, ub, mean, std):
+            # 2.58 standard deviations = 99.5th percentile in normal
+            lb = mean - 2.58*std if lb is None else lb
+            ub = mean + 2.58*std if ub is None else ub
+            mean = (lb + ub)/2. if mean is None else mean
+            # 0-1 scaling; ensures consistent smoother fitting at different scales
+            mean = (mean - lb)/(ub - lb)
+            std = None if std is None else std/(ub - lb)
+            # fit smoother
+            constraints = [MomentConstraint(mean, degree=1, weight=1e3)]
+            if std is not None:
+                constraints.append(MomentConstraint(
+                    std, degree=2, type_='central', norm=True, weight=1e3
+                )) 
+            self._dist = Smoother().fit(0, 1, constraints=constraints)
+            # return to original scale
+            self._dist.x = (ub - lb)*self._dist.x + lb
+
         dist_type = self._get_dist_type(lb, ub, mean, std)
         self._dist_type = dist_type
         self._fit_args = lb, ub, mean, std
@@ -316,19 +334,14 @@ class Moments():
         # elif dist_type == 'rgamma':
         #     self._dist = rgamma(((ub-mean) / std)**2, ub, std**2)
         elif dist_type == 'max-entropy':
-            lb = mean - 3*std if lb is None else lb
-            ub = mean + 3*std if ub is None else ub
-            mean = (lb + ub)/2. if mean is None else mean
-            constraints = [MomentConstraint(mean, degree=1)]
-            if std is not None:
-                constraints.append(MomentConstraint(
-                    std, degree=2, type_='central', norm=True
-                )) 
-            self._dist = Smoother().fit(lb, ub, constraints=constraints)
+            fit_max_entropy(lb, ub, mean, std)
         return self
 
     @staticmethod
     def _get_dist_type(lb=None, ub=None, mean=None, std=None):
+        """
+        Get the type of distribution based on available values.
+        """
         None_count = [lb, ub, mean, std].count(None)
         if None_count >= 3:
             return

@@ -88,8 +88,7 @@ Open your browser and navigate to <http://localhost:8050/>.
     <i>class</i> dash_fcast.distributions.<b>Table</b>(<i>id, bins=[0, 0.25, 0.5, 0.75, 1], pdf=[0.25, 0.25, 0.25, 0.25], datatable={}, row_addable=False, smoother=False, *args, **kwargs</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\table.py#L72">[source]</a>
 </p>
 
-Tabular distribution elicitation. Subclasses `smoother.Smoother`.
-<https://dsbowen.github.io/smoother/>.
+Tabular distribution elicitation.
 
 <table class="docutils field-list field-table" frame="void" rules="none">
     <col class="field-name" />
@@ -105,7 +104,7 @@ Tabular distribution elicitation. Subclasses `smoother.Smoother`.
 <p class="attr">
     List of 'break points' for the bins. The first bin starts at <code>bins[0]</code>. The last bin ends at <code>bins[-1]</code>.
 </p>
-<b>pdf : <i>list of float, default=[.25, .25, .25, .25]</i></b>
+<b>pdf : <i>list of scalars, default=[.25, .25, .25, .25]</i></b>
 <p class="attr">
     Probability density function. This is the amount of probability mass in each bin. Must sum to 1 and <code>len(pdf)</code> must be <code>len(bins)-1</code>.
 </p>
@@ -119,7 +118,7 @@ Tabular distribution elicitation. Subclasses `smoother.Smoother`.
 </p>
 <b>smoother : <i>bool, default=False</i></b>
 <p class="attr">
-    Indicates whether to use a smoother for interpolation.
+    Indicates whether to use a smoother for interpolation. See <a href="https://dsbowen.github.io/smoother/">https://dsbowen.github.io/smoother/</a>.
 </p>
 <b>*args, **kwargs : <i></i></b>
 <p class="attr">
@@ -136,7 +135,7 @@ Tabular distribution elicitation. Subclasses `smoother.Smoother`.
 
 
 <p class="func-header">
-    <i></i> <b>get_id</b>(<i>id, type='state'</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\table.py#L115">[source]</a>
+    <i></i> <b>get_id</b>(<i>id, type='state'</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\table.py#L117">[source]</a>
 </p>
 
 
@@ -171,7 +170,7 @@ Tabular distribution elicitation. Subclasses `smoother.Smoother`.
 
 
 <p class="func-header">
-    <i></i> <b>elicitation</b>(<i>self, bins=[0, 0.25, 0.5, 0.75, 1], pdf=[0.25, 0.25, 0.25, 0.25], datatable={}, row_addable=False</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\table.py#L143">[source]</a>
+    <i></i> <b>elicitation</b>(<i>self, bins=[0, 0.25, 0.5, 0.75, 1], pdf=[0.25, 0.25, 0.25, 0.25], datatable={}, row_addable=False</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\table.py#L145">[source]</a>
 </p>
 
 
@@ -214,7 +213,7 @@ Tabular distribution elicitation. Subclasses `smoother.Smoother`.
 
 
 <p class="func-header">
-    <i></i> <b>get_columns</b>(<i>self</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\table.py#L186">[source]</a>
+    <i></i> <b>get_columns</b>(<i>self</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\table.py#L188">[source]</a>
 </p>
 
 
@@ -238,7 +237,7 @@ Tabular distribution elicitation. Subclasses `smoother.Smoother`.
 
 
 <p class="func-header">
-    <i></i> <b>get_data</b>(<i>self, bins=None, pdf=None</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\table.py#L220">[source]</a>
+    <i></i> <b>get_data</b>(<i>self, bins=None, pdf=None</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\table.py#L222">[source]</a>
 </p>
 
 
@@ -273,7 +272,7 @@ Tabular distribution elicitation. Subclasses `smoother.Smoother`.
 
 
 <p class="func-header">
-    <i></i> <b>register_callbacks</b>(<i>app</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\table.py#L251">[source]</a>
+    <i></i> <b>register_callbacks</b>(<i>app</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\table.py#L253">[source]</a>
 </p>
 
 Register dash callbacks for table distributions.
@@ -297,7 +296,7 @@ Register dash callbacks for table distributions.
 
 
 <p class="func-header">
-    <i></i> <b>fit</b>(<i>self, bins=None, pdf=None, derivative=2</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\table.py#L286">[source]</a>
+    <i></i> <b>fit</b>(<i>self, bins=None, pdf=None, derivative=2</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\table.py#L284">[source]</a>
 </p>
 
 Fit the smoother given masses constraints.
@@ -336,7 +335,7 @@ Fit the smoother given masses constraints.
 
 
 <p class="func-header">
-    <i></i> <b>dump</b>(<i>self</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\table.py#L319">[source]</a>
+    <i></i> <b>dump</b>(<i>self</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\table.py#L322">[source]</a>
 </p>
 
 Dump the table distribution state dictionary in JSON format.
@@ -360,7 +359,7 @@ Dump the table distribution state dictionary in JSON format.
 
 
 <p class="func-header">
-    <i></i> <b>load</b>(<i>cls, state_dict</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\table.py#L339">[source]</a>
+    <i></i> <b>load</b>(<i>cls, state_dict</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\table.py#L342">[source]</a>
 </p>
 
 Load a table distribution from its state dictionary.
@@ -391,7 +390,7 @@ Load a table distribution from its state dictionary.
 
 
 <p class="func-header">
-    <i></i> <b>pdf_plot</b>(<i>self, **kwargs</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\table.py#L430">[source]</a>
+    <i></i> <b>pdf_plot</b>(<i>self, **kwargs</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\table.py#L433">[source]</a>
 </p>
 
 
@@ -422,7 +421,7 @@ Load a table distribution from its state dictionary.
 
 
 <p class="func-header">
-    <i></i> <b>cdf_plot</b>(<i>self, **kwargs</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\table.py#L455">[source]</a>
+    <i></i> <b>cdf_plot</b>(<i>self, **kwargs</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\table.py#L460">[source]</a>
 </p>
 
 
@@ -453,7 +452,7 @@ Load a table distribution from its state dictionary.
 
 
 <p class="func-header">
-    <i></i> <b>bar_plot</b>(<i>self, **kwargs</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\table.py#L473">[source]</a>
+    <i></i> <b>bar_plot</b>(<i>self, **kwargs</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\table.py#L480">[source]</a>
 </p>
 
 

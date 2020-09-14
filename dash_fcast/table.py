@@ -203,7 +203,11 @@ class Table():
             App with which to register the callbacks.
         """
         @app.callback(
-            Output(Table.get_id(MATCH, 'state'), 'children'),
+            [
+                Output(Table.get_id(MATCH, 'state'), 'children'),
+                Output(Table.get_id(MATCH, 'table'), 'columns'),
+                Output(Table.get_id(MATCH, 'table'), 'data')
+            ],
             [
                 Input(Table.get_id(MATCH, 'table'), 'data_timestamp'),
                 Input(Table.get_id(MATCH, 'row-add'), 'n_clicks'),
@@ -218,7 +222,24 @@ class Table():
             ]
         )
         def update_table_state(_, add_row, dist_states, table_state, data):
+            def inf_placeholder(record):
+                # insert inf as placeholder if bin start or end is empty
+                if record['bin-start'] == '':
+                    record['bin-start'] = '-∞'
+                if record['bin-end'] == '':
+                    record['bin-end'] = '∞'
+                return record
+
+            def rm_inf_placeholder(record):
+                # replace inf placeholders with '' when loading data
+                if record['bin-start'] == '-∞':
+                    record['bin-start'] = ''
+                if record['bin-end'] == '∞':
+                    record['bin-end'] = ''
+                return record
+
             trigger_ids = get_trigger_ids(dash.callback_context)
+            data = [rm_inf_placeholder(record) for record in data]
             table = Table.load(table_state)
             if table._first_callback:
                 table._handle_first_callback(dist_states)
@@ -226,18 +247,11 @@ class Table():
                 table._handle_bin_updates(dist_states, data, trigger_ids)
                 table._handle_row_add(add_row, dist_states, trigger_ids)
                 table._handle_dist_updates(dist_states)
-            return table.dump()
-
-        @app.callback(
-            [
-                Output(Table.get_id(MATCH, 'table'), 'columns'),
-                Output(Table.get_id(MATCH, 'table'), 'data')
-            ],
-            [Input(Table.get_id(MATCH, 'state'), 'children')]
-        )
-        def update_table(table_state):
-            table = Table.load(table_state)
-            return table.get_columns(), table._data
+            return (
+                table.dump(), 
+                table.get_columns(), 
+                [inf_placeholder(record) for record in table._data]
+            )
 
     def dump(self):
         """
@@ -364,6 +378,7 @@ class Table():
         x, y, width = [], [], []
         for record in self._data:
             bin_start, bin_end = record['bin-start'], record['bin-end']
+            # if bin_start != '-∞' and bin_end != '∞' and bin_start < bin_end:
             if '' not in (bin_start, bin_end) and bin_start < bin_end:
                 x.append((bin_start + bin_end)/2.)
                 width.append(bin_end - bin_start)

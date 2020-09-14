@@ -225,7 +225,7 @@ Register dash callbacks for table display.
 
 
 <p class="func-header">
-    <i></i> <b>dump</b>(<i>self</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/table.py#L242">[source]</a>
+    <i></i> <b>dump</b>(<i>self</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/table.py#L256">[source]</a>
 </p>
 
 
@@ -249,7 +249,7 @@ Register dash callbacks for table display.
 
 
 <p class="func-header">
-    <i></i> <b>load</b>(<i>cls, state_dict</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/table.py#L259">[source]</a>
+    <i></i> <b>load</b>(<i>cls, state_dict</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/table.py#L273">[source]</a>
 </p>
 
 
@@ -280,7 +280,7 @@ Register dash callbacks for table display.
 
 
 <p class="func-header">
-    <i></i> <b>bar_plot</b>(<i>self, col, **kwargs</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/table.py#L350">[source]</a>
+    <i></i> <b>bar_plot</b>(<i>self, col, **kwargs</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/table.py#L364">[source]</a>
 </p>
 
 

@@ -21,6 +21,17 @@
     }
 </style># Moments distribution
 
+This elicitation method asks forecasters to input the 'bounds and moments' of
+the distribution. (Specifically, the moments are the mean and standard
+deviation). It then fits a distribution based on these inputs:
+
+1. Lower bound and upper bound => uniform
+2. Lower bound and mean or standard deviation => exponential
+3. Upper bound and mean or standard deviation => 'reflected' exponential
+4. Mean and standard deviation => Gaussian
+5. Otherwise => non-parametric maximum entropy distribution. See
+<https://dsbowen.github.io/smoother/>.
+
 <table class="docutils field-list field-table" frame="void" rules="none">
     <col class="field-name" />
     <col class="field-body" />
@@ -92,11 +103,10 @@ Open your browser and navigate to <http://localhost:8050/>.
 ##dash_fcast.distributions.**Moments**
 
 <p class="func-header">
-    <i>class</i> dash_fcast.distributions.<b>Moments</b>(<i>id, lb=0, ub=1, mean=None, std=None, *args, **kwargs</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L74">[source]</a>
+    <i>class</i> dash_fcast.distributions.<b>Moments</b>(<i>id, lb=0, ub=1, mean=None, std=None, *args, **kwargs</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L88">[source]</a>
 </p>
 
-Distribution generated from moments elicitation. Inherits from
-`smoother.Smoother`. See <https://dsbowen.github.io/smoother/>.
+Distribution generated from moments elicitation.
 
 <table class="docutils field-list field-table" frame="void" rules="none">
     <col class="field-name" />
@@ -108,13 +118,13 @@ Distribution generated from moments elicitation. Inherits from
 <p class="attr">
     Distribution identifier.
 </p>
-<b>lb : <i>scalar, default=0</i></b>
+<b>lb : <i>scalar or None, default=0</i></b>
 <p class="attr">
-    Lower bound of the distribution. <em>F(x)=0</em> for all <em>x&lt;lb</em>.
+    Lower bound of the distribution. <em>F(x)=0</em> for all <em>x&lt;lb</em>. If <code>None</code>, the distribution has no lower bound.
 </p>
-<b>ub : <i>scalar, default=1</i></b>
+<b>ub : <i>scalar or None, default=1</i></b>
 <p class="attr">
-    Upper bound of the distribution. <em>F(x)=1</em> for all <em>x&gt;ub</em>.
+    Upper bound of the distribution. <em>F(x)=1</em> for all <em>x&gt;ub</em>. If <code>None</code>, the distribution has no upper bound.
 </p>
 <b>mean : <i>scalar or None, default=None</i></b>
 <p class="attr">
@@ -146,7 +156,7 @@ Distribution generated from moments elicitation. Inherits from
 
 
 <p class="func-header">
-    <i></i> <b>get_id</b>(<i>id, type='state'</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L113">[source]</a>
+    <i></i> <b>get_id</b>(<i>id, type='state'</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L129">[source]</a>
 </p>
 
 
@@ -181,7 +191,7 @@ Distribution generated from moments elicitation. Inherits from
 
 
 <p class="func-header">
-    <i></i> <b>elicitation</b>(<i>self, lb=0, ub=1, mean=None, std=None</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L140">[source]</a>
+    <i></i> <b>elicitation</b>(<i>self, lb=0, ub=1, mean=None, std=None</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L154">[source]</a>
 </p>
 
 Creates the layout for eliciting bounds and moments. Parameters for
@@ -193,19 +203,19 @@ this method are analogous to the constructor parameters.
     <tbody valign="top">
         <tr class="field">
     <th class="field-name"><b>Parameters:</b></td>
-    <td class="field-body" width="100%"><b>lb : <i>float, default=0</i></b>
+    <td class="field-body" width="100%"><b>lb : <i>scalar, default=0</i></b>
 <p class="attr">
     
 </p>
-<b>ub : <i>float, default=1</i></b>
+<b>ub : <i>scalar, default=1</i></b>
 <p class="attr">
     
 </p>
-<b>mean : <i>float or None, default=None</i></b>
+<b>mean : <i>scalar or None, default=None</i></b>
 <p class="attr">
     
 </p>
-<b>std : <i>float or None, default=None</i></b>
+<b>std : <i>scalar or None, default=None</i></b>
 <p class="attr">
     
 </p>
@@ -229,7 +239,7 @@ this method are analogous to the constructor parameters.
 
 
 <p class="func-header">
-    <i></i> <b>register_callbacks</b>(<i>app, decimals=2</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L197">[source]</a>
+    <i></i> <b>register_callbacks</b>(<i>app, decimals=2</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L212">[source]</a>
 </p>
 
 Register dash callbacks for moments distributions.
@@ -257,7 +267,7 @@ Register dash callbacks for moments distributions.
 
 
 <p class="func-header">
-    <i></i> <b>fit</b>(<i>self, lb=0, ub=1, mean=None, std=None</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L259">[source]</a>
+    <i></i> <b>fit</b>(<i>self, lb=None, ub=None, mean=None, std=None</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L284">[source]</a>
 </p>
 
 Fit the smoother given bounds and moments constraints. Parameters are
@@ -269,26 +279,26 @@ analogous to those of the constructor.
     <tbody valign="top">
         <tr class="field">
     <th class="field-name"><b>Parameters:</b></td>
-    <td class="field-body" width="100%"><b>lb : <i>scalar, default=0</i></b>
+    <td class="field-body" width="100%"><b>lb : <i>scalar or None, default=None</i></b>
 <p class="attr">
     
 </p>
-<b>ub : <i>scalar, default=1</i></b>
+<b>ub : <i>scalar or None, default=None</i></b>
 <p class="attr">
     
 </p>
-<b>mean : <i>float or None, default=None</i></b>
+<b>mean : <i>scalar or None, default=None</i></b>
 <p class="attr">
     
 </p>
-<b>std : <i>float or None, default=None</i></b>
+<b>std : <i>scalar or None, default=None</i></b>
 <p class="attr">
     
 </p></td>
 </tr>
 <tr class="field">
     <th class="field-name"><b>Returns:</b></td>
-    <td class="field-body" width="100%"><b>self : <i>dash_fcast.MomentSmoother</i></b>
+    <td class="field-body" width="100%"><b>self : <i>dash_fcast.distributions.Moments</i></b>
 <p class="attr">
     
 </p></td>
@@ -301,7 +311,7 @@ analogous to those of the constructor.
 
 
 <p class="func-header">
-    <i></i> <b>dump</b>(<i>self</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L286">[source]</a>
+    <i></i> <b>dump</b>(<i>self</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L371">[source]</a>
 </p>
 
 
@@ -325,7 +335,7 @@ analogous to those of the constructor.
 
 
 <p class="func-header">
-    <i></i> <b>load</b>(<i>cls, state_dict</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L299">[source]</a>
+    <i></i> <b>load</b>(<i>cls, state_dict</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L389">[source]</a>
 </p>
 
 
@@ -338,14 +348,14 @@ analogous to those of the constructor.
     <th class="field-name"><b>Parameters:</b></td>
     <td class="field-body" width="100%"><b>state_dict : <i>str (JSON)</i></b>
 <p class="attr">
-    Smoother state dictionary (output of <code>Smoother.dump</code>).
+    Moments distribution state dictionary (output of <code>Moments.dump</code>).
 </p></td>
 </tr>
 <tr class="field">
     <th class="field-name"><b>Returns:</b></td>
-    <td class="field-body" width="100%"><b>smoother : <i>dash_fcast.Smoother</i></b>
+    <td class="field-body" width="100%"><b>distribution : <i>dash_fcast.distributions.Moments</i></b>
 <p class="attr">
-    Smoother specified by the state dictionary.
+    Moments distribution specified by the state dictionary.
 </p></td>
 </tr>
     </tbody>
@@ -356,7 +366,97 @@ analogous to those of the constructor.
 
 
 <p class="func-header">
-    <i></i> <b>pdf_plot</b>(<i>self, **kwargs</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L318">[source]</a>
+    <i></i> <b>mean</b>(<i>self</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L414">[source]</a>
+</p>
+
+
+
+<table class="docutils field-list field-table" frame="void" rules="none">
+    <col class="field-name" />
+    <col class="field-body" />
+    <tbody valign="top">
+        
+    </tbody>
+</table>
+
+
+
+
+
+<p class="func-header">
+    <i></i> <b>std</b>(<i>self</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L417">[source]</a>
+</p>
+
+
+
+<table class="docutils field-list field-table" frame="void" rules="none">
+    <col class="field-name" />
+    <col class="field-body" />
+    <tbody valign="top">
+        
+    </tbody>
+</table>
+
+
+
+
+
+<p class="func-header">
+    <i></i> <b>pdf</b>(<i>self, x</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L420">[source]</a>
+</p>
+
+
+
+<table class="docutils field-list field-table" frame="void" rules="none">
+    <col class="field-name" />
+    <col class="field-body" />
+    <tbody valign="top">
+        
+    </tbody>
+</table>
+
+
+
+
+
+<p class="func-header">
+    <i></i> <b>cdf</b>(<i>self, x</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L423">[source]</a>
+</p>
+
+
+
+<table class="docutils field-list field-table" frame="void" rules="none">
+    <col class="field-name" />
+    <col class="field-body" />
+    <tbody valign="top">
+        
+    </tbody>
+</table>
+
+
+
+
+
+<p class="func-header">
+    <i></i> <b>ppf</b>(<i>self, q</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L426">[source]</a>
+</p>
+
+
+
+<table class="docutils field-list field-table" frame="void" rules="none">
+    <col class="field-name" />
+    <col class="field-body" />
+    <tbody valign="top">
+        
+    </tbody>
+</table>
+
+
+
+
+
+<p class="func-header">
+    <i></i> <b>pdf_plot</b>(<i>self, **kwargs</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L429">[source]</a>
 </p>
 
 
@@ -387,7 +487,7 @@ analogous to those of the constructor.
 
 
 <p class="func-header">
-    <i></i> <b>cdf_plot</b>(<i>self, **kwargs</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L333">[source]</a>
+    <i></i> <b>cdf_plot</b>(<i>self, **kwargs</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L452">[source]</a>
 </p>
 
 

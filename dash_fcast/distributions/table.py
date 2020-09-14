@@ -69,10 +69,9 @@ from smoother import Smoother, DerivativeObjective, MassConstraint
 import json
 
 
-class Table(Smoother):
+class Table():
     """
-    Tabular distribution elicitation. Subclasses `smoother.Smoother`.
-    <https://dsbowen.github.io/smoother/>.
+    Tabular distribution elicitation.
 
     Parameters and attributes
     -------------------------
@@ -83,7 +82,7 @@ class Table(Smoother):
         List of 'break points' for the bins. The first bin starts at 
         `bins[0]`. The last bin ends at `bins[-1]`.
 
-    pdf : list of float, default=[.25, .25, .25, .25]
+    pdf : list of scalars, default=[.25, .25, .25, .25]
         Probability density function. This is the amount of probability mass
         in each bin. Must sum to 1 and `len(pdf)` must be `len(bins)-1`.
 
@@ -95,7 +94,8 @@ class Table(Smoother):
         Indicates whether the forecaster can add rows.
 
     smoother : bool, default=False
-        Indicates whether to use a smoother for interpolation.
+        Indicates whether to use a smoother for interpolation. See 
+        <https://dsbowen.github.io/smoother/>.
 
     \*args, \*\*kwargs : 
         Arguments and keyword arguments passed to `super().__init__`.
@@ -111,6 +111,8 @@ class Table(Smoother):
         self.datatable = datatable
         self.row_addable = row_addable
         self.smoother = smoother
+        # underlying distribution if using smoother
+        self._dist = Smoother()
 
     @staticmethod
     def get_id(id, type='state'):
@@ -259,7 +261,10 @@ class Table(Smoother):
             App with which to register callbacks.
         """
         @app.callback(
-            Output(Table.get_id(MATCH, 'state'), 'children'),
+            [
+                Output(Table.get_id(MATCH, 'state'), 'children'),
+                Output(Table.get_id(MATCH, 'table'), 'data')
+            ],
             [
                 Input(Table.get_id(MATCH, 'table'), 'data_timestamp'),
                 Input(Table.get_id(MATCH, 'row-add'), 'n_clicks')
@@ -274,14 +279,7 @@ class Table(Smoother):
             table = Table.load(table_state)
             table._handle_data_updates(data, trigger_ids)
             table._handle_row_add(add_row, trigger_ids)
-            return table.dump()
-
-        @app.callback(
-            Output(Table.get_id(MATCH, 'table'), 'data'),
-            [Input(Table.get_id(MATCH, 'state'), 'children')]
-        )
-        def update_table(table_state):
-            return Table.load(table_state).get_data()
+            return table.dump(), table.get_data()
 
     def fit(self, bins=None, pdf=None, derivative=2):
         """
@@ -306,15 +304,20 @@ class Table(Smoother):
         -------
         self
         """
-        bins = self.bins if bins is None else bins
+        bins = np.array(self.bins if bins is None else bins)
         pdf = self.pdf if pdf is None else pdf
+        # 0-1 scaling; ensures consistent smoother fitting at different scales
+        loc, scale = bins[0], bins[-1] - bins[0]
+        bins = (bins - loc) / scale
+        # fit smoother
         params = zip(bins[:-1], bins[1:], pdf)
-        return super().fit(
-            bins[0], 
-            bins[-1],
-            [MassConstraint(lb, ub, mass) for lb, ub, mass in params],
+        self._dist.fit(
+            0, 1, [MassConstraint(lb, ub, mass) for lb, ub, mass in params],
             DerivativeObjective(derivative)
         )
+        # restore to original scale
+        self._dist.x = scale * self._dist.x + loc
+        return self
 
     def dump(self):
         """
@@ -332,8 +335,8 @@ class Table(Smoother):
             'datatable': self.datatable,
             'row_addable': self.row_addable,
             'smoother': self.smoother,
-            'x': list(self.x),
-            '_f_x': list(self._f_x)
+            'x': list(self._dist.x),
+            '_f_x': list(self._dist._f_x)
         })
 
     @classmethod
@@ -359,8 +362,8 @@ class Table(Smoother):
             state['row_addable'],
             state['smoother']
         )
-        table.x = np.array(state['x'])
-        table._f_x = np.array(state['_f_x'])
+        table._dist.x = np.array(state['x'])
+        table._dist._f_x = np.array(state['_f_x'])
         return table
 
     def _handle_data_updates(self, data, trigger_ids):
@@ -441,7 +444,9 @@ class Table(Smoother):
         """
         name = kwargs.pop('name', self.id)
         if self.smoother:
-            return go.Scatter(x=self.x, y=self.f_x, name=name, **kwargs)
+            return go.Scatter(
+                x=self._dist.x, y=self._dist.f_x, name=name, **kwargs
+            )
         heights = np.array(self.pdf) / np.diff(self.bins)
         x, y = [self.bins[0]], [heights[0]]
         values = zip(self.bins[1:], heights[:-1], heights[1:])
@@ -466,7 +471,9 @@ class Table(Smoother):
         """
         name = kwargs.pop('name', self.id)
         if self.smoother:
-            return go.Scatter(x=self.x, y=self.F_x, name=name, **kwargs)
+            return go.Scatter(
+                x=self._dist.x, y=self._dist.F_x, name=name, **kwargs
+            )
         F_x = np.insert(np.cumsum(self.pdf), 0, 0)
         return go.Scatter(x=self.bins, y=F_x, name=name, **kwargs)
 
