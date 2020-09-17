@@ -322,7 +322,7 @@ class Moments():
         self._dist_type = dist_type
         self._fit_args = lb, ub, mean, std
         if dist_type == 'uniform':
-            self._dist = uniform(lb, ub)
+            self._dist = uniform(lb, ub-lb)
         elif dist_type == 'expon':
             self._dist = expon(lb, mean-lb if std is None else std)
         elif dist_type == 'rexpon':

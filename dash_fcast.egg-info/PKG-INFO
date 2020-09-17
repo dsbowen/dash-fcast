@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: dash-fcast
-Version: 0.0.2
+Version: 0.0.3
 Summary: High-level API for creating forecasting dashboards.
 Home-page: https://dsbowen.github.io/dash-fcast/
 Author: Dillon Bowen
