@@ -54,6 +54,7 @@ $ python app.py
 Open your browser and navigate to <http://localhost:8050/>.
 """
 
+from .base import Base
 from ..utils import get_changed_cell, get_deleted_row, get_trigger_ids
 
 import dash
@@ -69,7 +70,7 @@ from smoother import Smoother, DerivativeObjective, MassConstraint
 import json
 
 
-class Table():
+class Table(Base):
     """
     Tabular distribution elicitation.
 
@@ -82,9 +83,9 @@ class Table():
         List of 'break points' for the bins. The first bin starts at 
         `bins[0]`. The last bin ends at `bins[-1]`.
 
-    pdf : list of scalars, default=[.25, .25, .25, .25]
+    prob : list of scalars, default=[.25, .25, .25, .25]
         Probability density function. This is the amount of probability mass
-        in each bin. Must sum to 1 and `len(pdf)` must be `len(bins)-1`.
+        in each bin. Must sum to 1 and `len(prob)` must be `len(bins)-1`.
 
     datatable : dict, default={}
         Keyword arguments for the datatable associated with the table
@@ -92,6 +93,9 @@ class Table():
 
     row_addable : bool, default=False
         Indicates whether the forecaster can add rows.
+
+    scalable : bool, default=False
+        Provides a scaling function for the table bins.
 
     smoother : bool, default=False
         Indicates whether to use a smoother for interpolation. See 
@@ -101,41 +105,38 @@ class Table():
         Arguments and keyword arguments passed to `super().__init__`.
     """
     def __init__(
-            self, id, bins=[0, .25, .5, .75, 1], pdf=[.25, .25, .25, .25], 
-            datatable={}, row_addable=False, smoother=False, *args, **kwargs
+            self, 
+            id, 
+            bins=[0, .25, .5, .75, 1], 
+            prob=[.25, .25, .25, .25],
+            editable_cols=['bin-start', 'bin-end', 'pdf', 'cdf'], 
+            datatable={},
+            row_addable=False,
+            scalable=False,
+            smoother=False, 
+            *args, **kwargs
         ):
-        super().__init__(*args, **kwargs)
-        self.id = id
+        super().__init__(id, *args, **kwargs)
         self.bins = bins
-        self.pdf = pdf
+        self.prob = prob
+        self.editable_cols = editable_cols
         self.datatable = datatable
         self.row_addable = row_addable
+        self.scalable = scalable
         self.smoother = smoother
         # underlying distribution if using smoother
         self._dist = Smoother()
-
-    @staticmethod
-    def get_id(id, type='state'):
-        """
-        Parameters
-        ----------
-        id : str
-
-        type : str, default='state'
-            Type of object associated with the moments distribution.
-
-        Returns
-        -------
-        id dictionary : dict
-            Dictionary identifier.
-        """
-        return {'dist-cls': 'table', 'dist-id': id, 'type': type}
 
     def to_plotly_json(self):
         return {
             'props': {
                 'children': self.elicitation(
-                    self.bins, self.pdf, self.datatable, self.row_addable
+                    self.bins, 
+                    self.prob, 
+                    self.editable_cols,
+                    self.datatable, 
+                    self.row_addable,
+                    self.scalable
                 )
             },
             'type': 'Div',
@@ -143,49 +144,82 @@ class Table():
         }
 
     def elicitation(
-            self, bins=[0, .25, .5, .75, 1], pdf=[.25, .25, .25, .25], 
-            datatable={}, row_addable=False
+            self, 
+            bins=[0, .25, .5, .75, 1], 
+            prob=[.25, .25, .25, .25], 
+            editable_cols=['bin-start', 'bin-end', 'pdf', 'cdf'],
+            datatable={}, 
+            row_addable=False,
+            scalable=False
         ):
         """
         Parameters
         ----------
         bins : list of scalars or numpy.array, default=[0, .25, .5, .75, 1]
 
-        pdf : list of scalars or numpy.array, default=[.25, .25, .25, .25]
+        prob : list of scalars or numpy.array, default=[.25, .25, .25, .25]
 
         datatable : dict, default={}
 
         row_addable : bool, default=False
+
+        scalable : bool, default=False
 
         Returns
         -------
         elicitation elements : list of dash elements
             Dash elements used to elicit the distribution.
         """
+        def gen_formgroup(label, type, value):
+            id = self.get_id(self.id, type)
+            return dbc.FormGroup([
+                dbc.Label(label, html_for=id, width=6),
+                dbc.Col([
+                    dbc.Input(
+                        id=id, 
+                        value=value,
+                        type='number', 
+                        style={'text-align': 'right'}
+                    )
+                ], width=6)
+            ], row=True)
+
         return [
             # hidden state div
             html.Div(
                 self.dump(),
-                id=Table.get_id(self.id, 'state'),
+                id=self.get_id(self.id, 'state'),
                 style={'display': 'none'}
             ),
+            html.Div([
+                gen_formgroup('Lower bound', 'lb', self.bins[0]),
+                gen_formgroup('Upper bound', 'ub', self.bins[-1]),
+                dbc.Button(
+                    'Rescale',
+                    id=self.get_id(self.id, 'rescale'),
+                    color='primary',
+                    style={'margin-bottom': '1em'}
+                ),
+            ], style={} if scalable else {'display': 'none'}),
             dash_table.DataTable(
-                id=Table.get_id(self.id, 'table'),
-                columns=self.get_columns(),
-                data=self.get_data(bins, pdf),
+                id=self.get_id(self.id, 'table'),
+                columns=self.get_columns(editable_cols),
+                data=self.get_data(bins, prob),
                 **datatable
             ),
             html.Div([
                 html.Br(),
                 dbc.Button(
                     'Add row',
-                    id=Table.get_id(self.id, 'row-add'),
+                    id=self.get_id(self.id, 'row-add'),
                     color='primary',
                 )
             ], style={} if self.row_addable else {'display': 'none'})
         ]
 
-    def get_columns(self):
+    def get_columns(
+            self, editable_cols=['bin-start', 'bin-end', 'pdf', 'cdf']
+        ):
         """
         Returns
         -------
@@ -194,7 +228,7 @@ class Table():
             <https://dash.plotly.com/datatable>,
         """
         format = Format(scheme=Scheme.fixed, precision=2)
-        return [
+        cols = [
             {
                 'id': 'bin-start', 
                 'name': 'Bin start', 
@@ -218,16 +252,19 @@ class Table():
                 'format': format
             }
         ]
+        for col in cols:
+            col['editable'] = col['id'] in editable_cols
+        return cols
 
-    def get_data(self, bins=None, pdf=None):
+    def get_data(self, bins=None, prob=None):
         """
         Parameters
         ----------
-        bins : list of float or numpy.array or None, default=None
+        bins : list of scalars or numpy.array or None, default=None
             If `None`, use `self.bins`.
 
-        pdf : list of float or numpy.array or None, default=None
-            If `None`, use `self.pdf`.
+        prob : list of scalars or numpy.array or None, default=None
+            If `None`, use `self.prob`.
 
         Returns
         -------
@@ -243,15 +280,15 @@ class Table():
             }
 
         bins = self.bins if bins is None else bins
-        pdf = self.pdf if pdf is None else pdf
+        pdf = self.prob if prob is None else prob
         cdf = np.cumsum(pdf)
         assert len(bins)-1 == len(pdf)
         return [
             get_record(*args) for args in zip(bins[:-1], bins[1:], pdf, cdf)
         ]
 
-    @staticmethod
-    def register_callbacks(app):
+    @classmethod
+    def register_callbacks(cls, app):
         """
         Register dash callbacks for table distributions.
 
@@ -262,38 +299,44 @@ class Table():
         """
         @app.callback(
             [
-                Output(Table.get_id(MATCH, 'state'), 'children'),
-                Output(Table.get_id(MATCH, 'table'), 'data')
+                Output(cls.get_id(MATCH, 'state'), 'children'),
+                Output(cls.get_id(MATCH, 'table'), 'data')
             ],
             [
-                Input(Table.get_id(MATCH, 'table'), 'data_timestamp'),
-                Input(Table.get_id(MATCH, 'row-add'), 'n_clicks')
+                Input(cls.get_id(MATCH, 'table'), 'data_timestamp'),
+                Input(cls.get_id(MATCH, 'rescale'), 'n_clicks'),
+                Input(cls.get_id(MATCH, 'row-add'), 'n_clicks')
             ],
             [
-                State(Table.get_id(MATCH, 'state'), 'children'),
-                State(Table.get_id(MATCH, 'table'), 'data')
+                State(cls.get_id(MATCH, 'state'), 'children'),
+                State(cls.get_id(MATCH, 'lb'), 'value'),
+                State(cls.get_id(MATCH, 'ub'), 'value'),
+                State(cls.get_id(MATCH, 'table'), 'data')
             ]
         )
-        def update_table_state(_, add_row, table_state, data):
+        def update_table_state(
+                _, rescale, add_row, table_state, lb, ub, data
+            ):
             trigger_ids = get_trigger_ids(dash.callback_context)
-            table = Table.load(table_state)
+            table = cls.load(table_state)
+            table._handle_rescale(rescale, lb, ub, trigger_ids)
             table._handle_data_updates(data, trigger_ids)
             table._handle_row_add(add_row, trigger_ids)
             return table.dump(), table.get_data()
 
-    def fit(self, bins=None, pdf=None, derivative=2):
+    def fit(self, bins=None, prob=None, derivative=2):
         """
         Fit the smoother given masses constraints.
 
         Parameters
         ----------
-        bins : list of float or numpy.array
+        bins : list of scalars or numpy.array
             Ordered list of bin break points. If `None`, use `self.bins`.
 
-        pdf : list of float or numpy.array
+        prob : list of scalars or numpy.array
             Probability density function. This is the amount of probability mass
-            in each bin. Must sum to 1 and `len(pdf)` should be `len(bins)-1`.
-            If `None`, use `self.pdf`.
+            in each bin. Must sum to 1 and `len(prob)` should be `len(bins)-1`.
+            If `None`, use `self.prob`.
 
         derivative : int, default=2
             Deriviate of the derivative smoothing function to maximize. e.g. 
@@ -305,7 +348,7 @@ class Table():
         self
         """
         bins = np.array(self.bins if bins is None else bins)
-        pdf = self.pdf if pdf is None else pdf
+        pdf = self.prob if prob is None else prob
         # 0-1 scaling; ensures consistent smoother fitting at different scales
         loc, scale = bins[0], bins[-1] - bins[0]
         bins = (bins - loc) / scale
@@ -328,12 +371,14 @@ class Table():
         state : dict, JSON
         """
         return json.dumps({
-            'cls': 'table',
+            'cls': self.__class__.__name__,
             'id': self.id,
             'bins': self.bins,
-            'pdf': self.pdf,
+            'prob': self.prob,
             'datatable': self.datatable,
+            'editable_cols': self.editable_cols,
             'row_addable': self.row_addable,
+            'scalable': self.scalable,
             'smoother': self.smoother,
             'x': list(self._dist.x),
             '_f_x': list(self._dist._f_x)
@@ -355,16 +400,31 @@ class Table():
         """
         state = json.loads(state_dict)
         table = cls(
-            state['id'],
-            state['bins'],
-            state['pdf'],
-            state['datatable'],
-            state['row_addable'],
-            state['smoother']
+            id=state['id'],
+            bins=state['bins'],
+            prob=state['prob'],
+            datatable=state['datatable'],
+            editable_cols=state['editable_cols'],
+            row_addable=state['row_addable'],
+            scalable=state['scalable'],
+            smoother=state['smoother']
         )
         table._dist.x = np.array(state['x'])
         table._dist._f_x = np.array(state['_f_x'])
         return table
+
+    def _handle_rescale(self, rescale, lb, ub, trigger_ids):
+        """
+        Helper method for callabck scaling table bins.
+        """
+        def rescale_f(x):
+            x = np.array(x)
+            return (ub-lb) * (x-curr_lb) / (curr_ub - curr_lb) + lb
+
+        if rescale and self.get_id(self.id, 'rescale') in trigger_ids:
+            curr_lb, curr_ub = self.bins[0], self.bins[-1]
+            self.bins = list(rescale_f(self.bins))
+            self._dist.x = rescale_f(self._dist.x)
 
     def _handle_data_updates(self, data, trigger_ids):
         """
@@ -376,9 +436,9 @@ class Table():
             Handle a row being deleted.
             """
             i = get_deleted_row(data, prev_data)
-            pdf_i = self.pdf.pop(i)
-            if i < len(self.pdf):
-                self.pdf[i] += pdf_i
+            pdf_i = self.prob.pop(i)
+            if i < len(self.prob):
+                self.prob[i] += pdf_i
             handle_bin_update()
 
         def handle_data_update():
@@ -391,10 +451,10 @@ class Table():
             _, changed_col = get_changed_cell(data, prev_data)
             handle_bin_update(end_updated=changed_col=='bin-end')
             if changed_col == 'pdf':
-                self.pdf = [d['pdf']/100. for d in data]
+                self.prob = [d['pdf']/100. for d in data]
             else:
                 cdf = np.insert([d['cdf'] for d in data], 0, 0)
-                self.pdf = list(np.diff(cdf)/100.)
+                self.prob = list(np.diff(cdf)/100.)
 
         def handle_bin_update(end_updated=True):
             """
@@ -407,7 +467,7 @@ class Table():
                 else bin_start + bin_end[-1:]
             )
 
-        if Table.get_id(self.id, 'table') not in trigger_ids:
+        if self.get_id(self.id, 'table') not in trigger_ids:
             return
         prev_data = self.get_data()
         if len(data) < len(prev_data):
@@ -426,9 +486,33 @@ class Table():
         Helper method for callback updating table state which handles adding
         rows.
         """
-        if add_row and Table.get_id(self.id, 'row-add') in trigger_ids:
+        if add_row and self.get_id(self.id, 'row-add') in trigger_ids:
             self.bins.append(self.bins[-1])
-            self.pdf.append(0)
+            self.prob.append(0)
+
+    def pdf(self, x):
+        if self.smoother:
+            return self._dist.pdf(x)
+        if x < self.bins[0] or self.bins[-1] <= x:
+            return 0
+        params = zip(self.bins[:-1], self.bins[1:], self.prob)
+        for bin_start, bin_end, pdf in params:
+            if bin_start < x <= bin_end:
+                return pdf / (bin_end - bin_start)
+
+    def cdf(self, x):
+        if self.smoother:
+            return self._dist.cdf(x)
+        if x <= self.bins[0]:
+            return 0
+        if x >= self.bins[-1]:
+            return 1
+        cdf = 0
+        params = zip(self.bins[:-1], self.bins[1:], self.prob)
+        for bin_start, bin_end, pdf in params:
+            if bin_start < x <= bin_end:
+                return cdf + pdf * (x-bin_start) / (bin_end - bin_start)
+            cdf += pdf
 
     def pdf_plot(self, **kwargs):
         """
@@ -447,7 +531,7 @@ class Table():
             return go.Scatter(
                 x=self._dist.x, y=self._dist.f_x, name=name, **kwargs
             )
-        heights = np.array(self.pdf) / np.diff(self.bins)
+        heights = np.array(self.prob) / np.diff(self.bins)
         x, y = [self.bins[0]], [heights[0]]
         values = zip(self.bins[1:], heights[:-1], heights[1:])
         for x_i, height_prev, height_curr in values:
@@ -474,7 +558,7 @@ class Table():
             return go.Scatter(
                 x=self._dist.x, y=self._dist.F_x, name=name, **kwargs
             )
-        F_x = np.insert(np.cumsum(self.pdf), 0, 0)
+        F_x = np.insert(np.cumsum(self.prob), 0, 0)
         return go.Scatter(x=self.bins, y=F_x, name=name, **kwargs)
 
     def bar_plot(self, **kwargs):
@@ -492,7 +576,7 @@ class Table():
         name = kwargs.pop('name', self.id)
         return go.Bar(
             x=(np.array(self.bins[1:]) + np.array(self.bins[:-1])) / 2.,
-            y=np.array(self.pdf) / np.diff(self.bins),
+            y=np.array(self.prob) / np.diff(self.bins),
             width=np.diff(self.bins),
             name=name,
             **kwargs

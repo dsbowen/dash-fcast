@@ -13,8 +13,9 @@ app.layout = html.Div([
     html.Br(),
     dist.Table(
         id='Forecast',
-        datatable={'editable': True, 'row_deletable': True},
+        datatable={'row_deletable': True},
         row_addable=True,
+        scalable=True,
         smoother=True
     ),
     html.Div(id='graphs')

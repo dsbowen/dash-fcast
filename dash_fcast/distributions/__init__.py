@@ -8,8 +8,8 @@ import json
 # maps distribution class name to distribution class
 # distribution class name is stored in the state dictionary with a 'cls' key
 dist_classes = {
-    'moments': Moments,
-    'table': Table
+    'Moments': Moments,
+    'Table': Table,
 }
 
 def load_distributions(dist_states):

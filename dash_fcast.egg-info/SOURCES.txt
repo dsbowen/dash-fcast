@@ -10,6 +10,7 @@ dash_fcast.egg-info/dependency_links.txt
 dash_fcast.egg-info/requires.txt
 dash_fcast.egg-info/top_level.txt
 dash_fcast/distributions/__init__.py
+dash_fcast/distributions/base.py
 dash_fcast/distributions/moments.py
 dash_fcast/distributions/table.py
 dash_fcast/distributions/utils.py

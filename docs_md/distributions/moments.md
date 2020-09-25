@@ -103,7 +103,7 @@ Open your browser and navigate to <http://localhost:8050/>.
 ##dash_fcast.distributions.**Moments**
 
 <p class="func-header">
-    <i>class</i> dash_fcast.distributions.<b>Moments</b>(<i>id, lb=0, ub=1, mean=None, std=None, *args, **kwargs</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L88">[source]</a>
+    <i>class</i> dash_fcast.distributions.<b>Moments</b>(<i>id, lb=0, ub=1, mean=None, std=None, *args, **kwargs</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L89">[source]</a>
 </p>
 
 Distribution generated from moments elicitation.
@@ -156,42 +156,7 @@ Distribution generated from moments elicitation.
 
 
 <p class="func-header">
-    <i></i> <b>get_id</b>(<i>id, type='state'</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L129">[source]</a>
-</p>
-
-
-
-<table class="docutils field-list field-table" frame="void" rules="none">
-    <col class="field-name" />
-    <col class="field-body" />
-    <tbody valign="top">
-        <tr class="field">
-    <th class="field-name"><b>Parameters:</b></td>
-    <td class="field-body" width="100%"><b>id : <i>str</i></b>
-<p class="attr">
-    
-</p>
-<b>type : <i>str, default='state'</i></b>
-<p class="attr">
-    Type of object associated with the moments distribution.
-</p></td>
-</tr>
-<tr class="field">
-    <th class="field-name"><b>Returns:</b></td>
-    <td class="field-body" width="100%"><b>id dictionary : <i>dict</i></b>
-<p class="attr">
-    Dictionary identifier.
-</p></td>
-</tr>
-    </tbody>
-</table>
-
-
-
-
-
-<p class="func-header">
-    <i></i> <b>elicitation</b>(<i>self, lb=0, ub=1, mean=None, std=None</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L154">[source]</a>
+    <i></i> <b>elicitation</b>(<i>self, lb=0, ub=1, mean=None, std=None</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L137">[source]</a>
 </p>
 
 Creates the layout for eliciting bounds and moments. Parameters for
@@ -239,7 +204,7 @@ this method are analogous to the constructor parameters.
 
 
 <p class="func-header">
-    <i></i> <b>register_callbacks</b>(<i>app, decimals=2</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L212">[source]</a>
+    <i></i> <b>register_callbacks</b>(<i>cls, app, decimals=2</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L194">[source]</a>
 </p>
 
 Register dash callbacks for moments distributions.
@@ -267,7 +232,7 @@ Register dash callbacks for moments distributions.
 
 
 <p class="func-header">
-    <i></i> <b>fit</b>(<i>self, lb=None, ub=None, mean=None, std=None</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L284">[source]</a>
+    <i></i> <b>fit</b>(<i>self, lb=None, ub=None, mean=None, std=None</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L266">[source]</a>
 </p>
 
 Fit the smoother given bounds and moments constraints. Parameters are
@@ -311,7 +276,7 @@ analogous to those of the constructor.
 
 
 <p class="func-header">
-    <i></i> <b>dump</b>(<i>self</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L371">[source]</a>
+    <i></i> <b>dump</b>(<i>self</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L349">[source]</a>
 </p>
 
 
@@ -335,7 +300,7 @@ analogous to those of the constructor.
 
 
 <p class="func-header">
-    <i></i> <b>load</b>(<i>cls, state_dict</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L389">[source]</a>
+    <i></i> <b>load</b>(<i>cls, state_dict</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L367">[source]</a>
 </p>
 
 
@@ -366,7 +331,7 @@ analogous to those of the constructor.
 
 
 <p class="func-header">
-    <i></i> <b>mean</b>(<i>self</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L414">[source]</a>
+    <i></i> <b>mean</b>(<i>self</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L392">[source]</a>
 </p>
 
 
@@ -384,7 +349,7 @@ analogous to those of the constructor.
 
 
 <p class="func-header">
-    <i></i> <b>std</b>(<i>self</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L417">[source]</a>
+    <i></i> <b>std</b>(<i>self</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L395">[source]</a>
 </p>
 
 
@@ -402,7 +367,7 @@ analogous to those of the constructor.
 
 
 <p class="func-header">
-    <i></i> <b>pdf</b>(<i>self, x</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L420">[source]</a>
+    <i></i> <b>pdf</b>(<i>self, x</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L398">[source]</a>
 </p>
 
 
@@ -420,7 +385,7 @@ analogous to those of the constructor.
 
 
 <p class="func-header">
-    <i></i> <b>cdf</b>(<i>self, x</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L423">[source]</a>
+    <i></i> <b>cdf</b>(<i>self, x</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L401">[source]</a>
 </p>
 
 
@@ -438,7 +403,7 @@ analogous to those of the constructor.
 
 
 <p class="func-header">
-    <i></i> <b>ppf</b>(<i>self, q</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L426">[source]</a>
+    <i></i> <b>ppf</b>(<i>self, q</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L404">[source]</a>
 </p>
 
 
@@ -456,7 +421,7 @@ analogous to those of the constructor.
 
 
 <p class="func-header">
-    <i></i> <b>pdf_plot</b>(<i>self, **kwargs</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L429">[source]</a>
+    <i></i> <b>pdf_plot</b>(<i>self, **kwargs</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L407">[source]</a>
 </p>
 
 
@@ -487,7 +452,7 @@ analogous to those of the constructor.
 
 
 <p class="func-header">
-    <i></i> <b>cdf_plot</b>(<i>self, **kwargs</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L452">[source]</a>
+    <i></i> <b>cdf_plot</b>(<i>self, **kwargs</i>) <a class="src-href" target="_blank" href="https://github.com/dsbowen/dash-fcast/blob/master/dash_fcast/distributions\moments.py#L430">[source]</a>
 </p>
 
 

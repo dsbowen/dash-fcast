@@ -72,6 +72,7 @@ $ python app.py
 Open your browser and navigate to <http://localhost:8050/>.
 """
 
+from .base import Base
 from .utils import rexpon, rgamma
 
 import dash_bootstrap_components as dbc
@@ -80,12 +81,12 @@ import numpy as np
 import plotly.graph_objects as go
 from dash.dependencies import MATCH, Input, Output, State
 from scipy.stats import expon, gamma, norm, uniform
-from smoother import Smoother, MomentConstraint
+from smoother import MaxEntropy
 
 import json
 
 
-class Moments():
+class Moments(Base):
     """
     Distribution generated from moments elicitation.
 
@@ -121,27 +122,9 @@ class Moments():
         Set from the `id` parameter.
     """
     def __init__(self, id, lb=0, ub=1, mean=None, std=None, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.id = id
+        super().__init__(id, *args, **kwargs)
         self._dist, self._dist_type = None, None
         self._fit_args = lb, ub, mean, std
-
-    @staticmethod
-    def get_id(id, type='state'):
-        """
-        Parameters
-        ----------
-        id : str
-
-        type : str, default='state'
-            Type of object associated with the moments distribution.
-
-        Returns
-        -------
-        id dictionary : dict
-            Dictionary identifier.
-        """
-        return {'dist-cls': 'moments', 'dist-id': id, 'type': type}
 
     def to_plotly_json(self):
         return {
@@ -176,8 +159,8 @@ class Moments():
             Elicitation layout.
         """
         def gen_formgroup(label, type, value, placeholder=None):
-            id = Moments.get_id(self.id, type)
-            formgroup = dbc.FormGroup([
+            id = self.get_id(self.id, type)
+            return dbc.FormGroup([
                 dbc.Label(label, html_for=id, width=6),
                 dbc.Col([
                     dbc.Input(
@@ -186,16 +169,15 @@ class Moments():
                         placeholder=placeholder,
                         type='number', 
                         style={'text-align': 'right'}
-                    ),
+                    )
                 ], width=6)
             ], row=True)
-            return formgroup
 
         return [
             # hidden state div
             html.Div(
                 self.dump(), 
-                id=Moments.get_id(self.id, 'state'), 
+                id=self.get_id(self.id, 'state'), 
                 style={'display': 'none'}
             ),
             gen_formgroup('Lower bound', 'lb', lb, '-∞'),
@@ -204,13 +186,13 @@ class Moments():
             gen_formgroup('Standard deviation', 'std', std),
             dbc.Button(
                 'Update', 
-                id=Moments.get_id(self.id, 'update'), 
+                id=self.get_id(self.id, 'update'), 
                 color='primary'
             )
         ]
 
-    @staticmethod
-    def register_callbacks(app, decimals=2):
+    @classmethod
+    def register_callbacks(cls, app, decimals=2):
         """
         Register dash callbacks for moments distributions.
 
@@ -224,14 +206,14 @@ class Moments():
             placeholder.
         """
         @app.callback(
-            Output(Moments.get_id(MATCH, 'mean'), 'placeholder'),
+            Output(cls.get_id(MATCH, 'mean'), 'placeholder'),
             [
-                Input(Moments.get_id(MATCH, type), 'value') 
+                Input(cls.get_id(MATCH, type), 'value') 
                 for type in ('lb', 'ub', 'std')
             ]
         )
         def update_mean_placeholder(lb, ub, std):
-            dist_type = Moments._get_dist_type(lb, ub, std=std)
+            dist_type = cls._get_dist_type(lb, ub, std=std)
             if dist_type is None:
                 return None
             if dist_type in ('uniform', 'max-entropy'):
@@ -243,14 +225,14 @@ class Moments():
             return round(mean, decimals)
 
         @app.callback(
-            Output(Moments.get_id(MATCH, 'std'), 'placeholder'),
+            Output(cls.get_id(MATCH, 'std'), 'placeholder'),
             [
-                Input(Moments.get_id(MATCH, type), 'value') 
+                Input(cls.get_id(MATCH, type), 'value') 
                 for type in ('lb', 'ub', 'mean')
             ]
         )
         def update_std_placeholder(lb, ub, mean):
-            dist_type = Moments._get_dist_type(lb, ub, mean)
+            dist_type = cls._get_dist_type(lb, ub, mean)
             if dist_type is None:
                 return
             if dist_type == 'uniform':
@@ -260,24 +242,24 @@ class Moments():
             elif dist_type == 'rexpon':
                 std = ub - mean
             elif dist_type == 'max-entropy':
-                std = Moments('tmp').fit(lb, ub, mean).std()
+                std = cls(id='tmp').fit(lb, ub, mean).std()
             return round(std, decimals)
 
         @app.callback(
-            Output(Moments.get_id(MATCH, 'state'), 'children'),
-            [Input(Moments.get_id(MATCH, 'update'), 'n_clicks')],
+            Output(cls.get_id(MATCH, 'state'), 'children'),
+            [Input(cls.get_id(MATCH, 'update'), 'n_clicks')],
             [
-                State(Moments.get_id(MATCH, 'state'), 'id'),
-                State(Moments.get_id(MATCH, 'state'), 'children'),
-                State(Moments.get_id(MATCH, 'lb'), 'value'),
-                State(Moments.get_id(MATCH, 'ub'), 'value'),
-                State(Moments.get_id(MATCH, 'mean'), 'value'),
-                State(Moments.get_id(MATCH, 'std'), 'value')
+                State(cls.get_id(MATCH, 'state'), 'id'),
+                State(cls.get_id(MATCH, 'state'), 'children'),
+                State(cls.get_id(MATCH, 'lb'), 'value'),
+                State(cls.get_id(MATCH, 'ub'), 'value'),
+                State(cls.get_id(MATCH, 'mean'), 'value'),
+                State(cls.get_id(MATCH, 'std'), 'value')
             ]
         )
         def update_forecast(_, id, children, lb, ub, mean, std):
             try:
-                return Moments(id['dist-id']).fit(lb, ub, mean, std).dump()
+                return cls(id['dist-id']).fit(lb, ub, mean, std).dump()
             except:
                 return children
 
@@ -304,19 +286,15 @@ class Moments():
             # 2.58 standard deviations = 99.5th percentile in normal
             lb = mean - 2.58*std if lb is None else lb
             ub = mean + 2.58*std if ub is None else ub
+            moment_funcs, values = [], []
+            if mean is not None:
+                moment_funcs.append(lambda x: x)
+                values.append(mean)
             mean = (lb + ub)/2. if mean is None else mean
-            # 0-1 scaling; ensures consistent smoother fitting at different scales
-            mean = (mean - lb)/(ub - lb)
-            std = None if std is None else std/(ub - lb)
-            # fit smoother
-            constraints = [MomentConstraint(mean, degree=1, weight=1e3)]
             if std is not None:
-                constraints.append(MomentConstraint(
-                    std, degree=2, type_='central', norm=True, weight=1e3
-                )) 
-            self._dist = Smoother().fit(0, 1, constraints=constraints)
-            # return to original scale
-            self._dist.x = (ub - lb)*self._dist.x + lb
+                moment_funcs.append(lambda x: (x-mean)**2)
+                values.append(std**2)
+            self._dist = MaxEntropy().fit(lb, ub, moment_funcs, values)
 
         dist_type = self._get_dist_type(lb, ub, mean, std)
         self._dist_type = dist_type
@@ -375,7 +353,7 @@ class Moments():
         state dictionary : str (JSON)
         """
         state = {
-            'cls': 'moments',
+            'cls': self.__class__.__name__,
             'id': self.id,
             '_dist_type': self._dist_type,
             '_fit_args': self._fit_args
@@ -404,7 +382,7 @@ class Moments():
         dist._dist_type = state_dict['_dist_type']
         if dist._dist_type == 'max-entropy':
             dist._fit_args = state_dict['_fit_args']
-            dist._dist = Smoother()
+            dist._dist = MaxEntropy()
             dist._dist.x = np.array(state_dict['x'])
             dist._dist._f_x = np.array(state_dict['_f_x'])
         else:

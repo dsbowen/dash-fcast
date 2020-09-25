@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="dash-fcast",
-    version="0.0.3",
+    version="0.0.5",
     author="Dillon Bowen",
     author_email="dsbowen@wharton.upenn.edu",
     description="High-level API for creating forecasting dashboards.",
@@ -23,6 +23,6 @@ setuptools.setup(
         'dash>=1.16.0',
         'dash-bootstrap-components>=0.10.6',
         'pandas>=1.1.2',
-        'smoother>=0.0.2'
+        'smoother>=0.0.5'
     ]
 )
